@@ -7,7 +7,7 @@ import (
 	"github.com/ProgenyAlpha/reddit-lurker/cmd"
 )
 
-const version = "0.5.0"
+const version = "1.0.0"
 
 func main() {
 	if len(os.Args) < 2 {

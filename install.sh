@@ -5,7 +5,7 @@ REPO="ProgenyAlpha/reddit-lurker"
 BINARY="lurk"
 SKILL_DIR="$HOME/.claude/skills/reddit"
 CLAUDE_CONFIG="$HOME/.claude.json"
-VERSION="0.5.0"
+VERSION="1.0.0"
 
 # Colors (if terminal supports them)
 RED='\033[0;31m'
