@@ -1,0 +1,41 @@
+BINARY := lurk
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags "-s -w"
+GOFILES := $(shell find . -name '*.go' -type f)
+
+.PHONY: build clean install test all
+
+build: $(BINARY)
+
+$(BINARY): $(GOFILES)
+	go build $(LDFLAGS) -o $(BINARY) .
+
+all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+
+build-linux-amd64:
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 .
+
+build-linux-arm64:
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 .
+
+build-darwin-amd64:
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 .
+
+build-darwin-arm64:
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 .
+
+install: build
+	cp $(BINARY) $(HOME)/.local/bin/$(BINARY)
+
+install-skill: build
+	mkdir -p $(HOME)/.claude/skills/lurk
+	cp $(BINARY) $(HOME)/.claude/skills/lurk/$(BINARY)
+	cp skill/SKILL.md $(HOME)/.claude/skills/lurk/SKILL.md
+	@echo "Installed lurk skill to ~/.claude/skills/lurk/"
+
+clean:
+	rm -f $(BINARY)
+	rm -rf dist/
+
+test:
+	go test ./...
