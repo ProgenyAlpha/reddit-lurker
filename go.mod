@@ -1,4 +1,4 @@
-module github.com/progenyalpha/lurk
+module github.com/ProgenyAlpha/reddit-lurker
 
 go 1.24.4
 

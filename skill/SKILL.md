@@ -1,6 +1,6 @@
 # Lurk — Reddit Reader
 
-Read Reddit threads, browse subreddits, search posts, and check user profiles. Full comment trees, no auth needed.
+Read Reddit threads, browse subreddits, search posts, and check user profiles. Full comment trees with automatic expansion of collapsed threads. No auth needed.
 
 ## When to Use
 
@@ -13,16 +13,19 @@ Read Reddit threads, browse subreddits, search posts, and check user profiles. F
 
 ```bash
 # Read a full thread with all comments
-lurk thread "<reddit_url>"
+~/.claude/skills/reddit/lurk thread "<reddit_url>" --compact
 
 # Browse a subreddit
-lurk subreddit <name> --sort hot --limit 25
+~/.claude/skills/reddit/lurk subreddit <name> --sort hot --limit 25 --compact
 
 # Search Reddit (optionally within a subreddit)
-lurk search "<query>" --sub <subreddit> --sort relevance --limit 25
+~/.claude/skills/reddit/lurk search "<query>" --sub <subreddit> --sort relevance --limit 25 --compact
 
 # View user activity
-lurk user <username> --limit 10
+~/.claude/skills/reddit/lurk user <username> --limit 10 --compact
+
+# Subreddit info
+~/.claude/skills/reddit/lurk subreddit <name> --info --compact
 ```
 
 ## Sort Options
@@ -31,15 +34,10 @@ lurk user <username> --limit 10
 - Search: relevance, hot, top, new, comments
 - Time filter (for top/controversial): hour, day, week, month, year, all
 
+## Pagination
+
+Results include a `--after` token when more pages are available.
+
 ## Output
 
-Default output is human-readable markdown. Add `--json` for raw JSON or `--compact` for AI-optimized compact notation.
-
-## Examples
-
-```bash
-lurk thread "https://www.reddit.com/r/ClaudeAI/comments/abc123/post_title/"
-lurk subreddit ClaudeAI --sort top --time week --limit 10
-lurk search "MCP server setup" --sub ClaudeAI
-lurk user spez --limit 5
-```
+Always use `--compact` for efficient token usage. Add `--json` for raw JSON if needed.

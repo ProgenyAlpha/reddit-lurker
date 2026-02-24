@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/progenyalpha/lurk/cmd"
+	"github.com/ProgenyAlpha/reddit-lurker/cmd"
 )
 
-const version = "0.1.0"
+const version = "0.5.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -27,7 +27,7 @@ func main() {
 	case "serve":
 		cmd.Serve(version)
 	case "version", "--version", "-v":
-		fmt.Printf("lurk %s\n", version)
+		fmt.Printf("lurk v%s\n", version)
 	case "help", "--help", "-h":
 		printUsage()
 	default:

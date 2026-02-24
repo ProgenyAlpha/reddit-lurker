@@ -1,0 +1,30 @@
+{
+  "name": "reddit-lurker",
+  "version": "0.5.0",
+  "description": "Reddit reader for Claude Code — full comment trees, no auth, one binary",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProgenyAlpha/reddit-lurker"
+  },
+  "license": "MIT",
+  "bin": {
+    "reddit-lurker": "setup.js",
+    "lurk": "bin/lurk"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "files": [
+    "postinstall.js",
+    "setup.js",
+    "bin/"
+  ],
+  "keywords": [
+    "reddit",
+    "claude",
+    "claude-code",
+    "mcp",
+    "lurk"
+  ],
+  "author": "ProgenyAlpha"
+}
