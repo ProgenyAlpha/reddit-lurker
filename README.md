@@ -13,9 +13,31 @@
   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 
-> *Because sometimes you just need to read the comments without anyone knowing you were there.*
+**Let Claude read the entire Reddit thread. Not just the first 10 comments.**
 
-A Reddit reader for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Paste a URL, ask about a subreddit, search for posts. Full comment trees, collapsed threads expanded, no auth required.
+Reddit killed self-serve API keys in November 2025. Now if you want an LLM to analyze a Reddit thread, your options are:
+
+- Copy/paste (destroys structure)
+- Screenshot (loses half the replies)
+- Print to PDF (good luck)
+- Use an existing Reddit MCP that silently ignores "+47 more replies"
+
+The best parts of Reddit are buried 4-5 replies deep. The correction. The real answer. The "actually you're wrong and here's why" that saves you hours. Most tools never fetch them.
+
+**Reddit Lurker does.**
+
+It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the full comment tree. No API keys, no OAuth, no approval process. Paste a Reddit URL and Claude gets the entire conversation.
+
+## What You Get
+
+- Full comment trees at any depth
+- Collapsed threads automatically expanded
+- Cross-posts traced back to the original
+- Galleries, video, media URLs extracted
+- 15-minute cache (same thread twice = instant)
+- ~42% fewer tokens than markdown output
+- Single Go binary, zero dependencies
+- Read-only by design
 
 ## Install
 
@@ -75,28 +97,25 @@ Just talk to Claude naturally:
 
 Claude handles the rest. No commands to memorize.
 
-## Why This Exists
+## The Difference
 
-Reddit's official API requires OAuth credentials, and as of November 2025 self-service API key creation is no longer available. New developers need to apply through Reddit's Responsible Builder Policy - a process many find difficult to navigate.
+**Without Reddit Lurker:**
+- 12 top-level comments
+- No nested replies
+- Missing half the conversation
+- "kind: more" objects silently dropped
 
-Even with credentials, Reddit's API returns stub objects for collapsed comment threads (`"kind": "more"`). Expanding these requires extra API calls that most tools don't make, so you get a shallow slice of the conversation without realizing what's missing.
-
-Lurk takes a different approach. Reddit serves full JSON for every public page without authentication - just append `.json` to any URL. No API keys, no approval process, no OAuth tokens to expire. Lurk does that:
-
-- **Full comment trees** - every reply, every depth, properly nested
-- **Collapsed threads expanded** - "+47 more replies"? Fetched automatically
-- **Cross-posts** traced back to the original
-- **Galleries, video, media** - URLs extracted
-- **15-minute cache** - same thread twice? Instant
-- **Retry + backoff** - rate limits handled silently
-
-One Go binary. Zero authentication. Zero tracking.
+**With Reddit Lurker:**
+- 137 comments, full depth
+- Every collapsed thread expanded
+- Complete conversational context
+- Structure preserved for LLM analysis
 
 ---
 
 ## Reference
 
-Everything below is for people who want the details. You don't need any of this to use lurk.
+Everything below is for people who want the details. You don't need any of this to use Reddit Lurker.
 
 ### Commands
 
@@ -128,15 +147,15 @@ lurk subreddit ClaudeAI --info                              # Subreddit metadata
 
 Both modes use the same compact notation for output, so per-call token cost is identical. The real differences:
 
-**Context overhead.** Every message you send, Claude also receives hidden instructions you don't see - tool definitions, context, rules. Skill adds ~20 tokens to this. MCP adds ~438 tokens. On subscription plans this is cached and free. On the API, you pay for it every message.
+**Context overhead.** Every message you send, Claude also receives hidden instructions you don't see: tool definitions, context, rules. Skill adds ~20 tokens to this. MCP adds ~438 tokens. On subscription plans this is cached and free. On the API, you pay for it every message.
 
-**Caching.** MCP runs as a background server that stays alive between calls. Its 15-minute in-memory cache means hitting the same thread or subreddit twice is instant - no Reddit request. Skill starts a fresh process each call, so there's no cache between calls. You can adjust the TTL in `reddit/client.go` if you want it longer or shorter.
+**Caching.** MCP runs as a background server that stays alive between calls. Its 15-minute in-memory cache means hitting the same thread or subreddit twice is instant, no Reddit request. Skill starts a fresh process each call, so there's no cache between calls. You can adjust the TTL in `reddit/client.go` if you want it longer or shorter.
 
-**Permissions.** Skill works through Bash - Claude needs permission to run shell commands. MCP is a native tool call that doesn't touch the shell. If you run Claude Code with Bash restricted or prefer fewer permission prompts, MCP works without it.
+**Permissions.** Skill works through Bash, so Claude needs permission to run shell commands. MCP is a native tool call that doesn't touch the shell. If you run Claude Code with Bash restricted or prefer fewer permission prompts, MCP works without it.
 
 ### Compact Notation
 
-Both Skill and MCP use compact tab-delimited output designed for LLMs - same data as markdown, ~42% fewer tokens. Here's what Claude sees:
+Both Skill and MCP use compact tab-delimited output designed for LLMs. Same data as markdown, ~42% fewer tokens. Here's what Claude sees:
 
 **Standard markdown (for comparison):**
 ```markdown
@@ -200,4 +219,3 @@ rm -rf ~/.claude/skills/reddit                    # Remove skill
 ## License
 
 MIT
-
