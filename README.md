@@ -78,7 +78,7 @@ Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 - Adds OAuth complexity and token management for what should be a read-only operation
 - Keys can expire mid-workflow
 
-Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (100 req/10min burst window) with automatic retry and backoff.
+Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (10 req/min) with automatic retry and backoff.
 
 **Note:** Lurker only works with public subreddits and posts. Private and restricted subreddits require authentication, which Lurker does not support at this time.
 
@@ -317,7 +317,7 @@ Deleted comments show as `[deleted]` in the output — Reddit still counts them 
 ## Limitations
 
 - **Public content only.** Private, restricted, and quarantined subreddits require OAuth, which Lurker doesn't support.
-- **Unauthenticated rate limit.** 100 requests per 10 minutes (Reddit allows bursting). Large threads with many expansion batches may take 20-30 seconds. Normal threads return in under 3 seconds.
+- **Unauthenticated rate limit.** 10 requests/minute with automatic retry and exponential backoff. Large threads may take longer to fully expand.
 - **~500 comment cap on mega threads.** Reddit limits initial responses to 500 comments. Lurker then expands collapsed branches recursively, reaching 95%+ on threads under 500 comments. Threads over 1,000 cap around ~460 — still far more than any unauthenticated tool, but not the complete set.
 - **No NSFW age gates.** Some NSFW subreddits gate content behind login even for public posts.
 
@@ -407,7 +407,7 @@ Same thread, same structure, **42% fewer tokens than markdown, 77% fewer than JS
 - Appends `.json` to any Reddit URL
 - Recursively walks comment trees to arbitrary depth
 - Fetches `/api/morechildren` to expand collapsed threads (batched, max 100 IDs)
-- Rate limited to 100 req/10min (Reddit's unauthenticated burst window)
+- Rate limited to 10 req/min (Reddit's unauthenticated limit)
 - Retries 429/5xx with exponential backoff (3 attempts)
 - In-memory cache with 15-minute TTL
 
