@@ -83,7 +83,10 @@ func Update(currentVersion string, args []string) {
 		return
 	}
 
-	if err := updater.UpdateTo(ctx, latest, exe); err != nil {
+	dlCtx, dlCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer dlCancel()
+
+	if err := updater.UpdateTo(dlCtx, latest, exe); err != nil {
 		fmt.Fprintf(os.Stderr, "Update failed: %s\n", err)
 		os.Exit(1)
 	}
@@ -225,9 +228,11 @@ func checkWritePermission(dir string) error {
 		return err
 	}
 	name := f.Name()
-	f.Close()
-	os.Remove(name)
-	return nil
+	if err := f.Close(); err != nil {
+		os.Remove(name)
+		return err
+	}
+	return os.Remove(name)
 }
 
 // configPath returns the lurk config directory path.
