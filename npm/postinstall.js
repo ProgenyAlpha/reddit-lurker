@@ -63,12 +63,14 @@ async function extractZip(buffer, destDir) {
 }
 
 async function extractTarGz(buffer, destDir) {
-  // Write to temp file and extract with tar
   const tmp = path.join(os.tmpdir(), `lurk-${Date.now()}.tar.gz`);
   fs.writeFileSync(tmp, buffer);
   fs.mkdirSync(destDir, { recursive: true });
-  execSync(`tar xzf "${tmp}" -C "${destDir}"`, { stdio: "pipe" });
-  fs.unlinkSync(tmp);
+  try {
+    execSync(`tar xzf "${tmp}" -C "${destDir}"`, { stdio: "pipe" });
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
 }
 
 async function main() {

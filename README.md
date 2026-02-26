@@ -37,7 +37,7 @@ Post: "Finally We have the best agentic AI at home"
          +-- Reply ...
 ```
 
-**104 of 109 comments. 10 levels deep. One API call.**
+**104 of 109 comments. 10 levels deep. Fully automatic.**
 
 ## How Token Savings Work
 
