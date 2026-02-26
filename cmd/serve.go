@@ -63,7 +63,10 @@ Compact notation:
 			mcp.Description("Time filter: hour, day, week, month, year, all"),
 		),
 		mcp.WithString("sub",
-			mcp.Description("Restrict search to subreddit (search command only)"),
+			mcp.Description("Restrict search to subreddit(s) — comma-separated for multi-sub (search only)"),
+		),
+		mcp.WithBoolean("nsfw",
+			mcp.Description("Include NSFW content (default false)"),
 		),
 	)
 }
@@ -76,6 +79,7 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 		limit := req.GetInt("limit", 25)
 		timeFilter := req.GetString("time", "")
 		sub := req.GetString("sub", "")
+		nsfw := req.GetBool("nsfw", false)
 
 		if target == "" {
 			return mcp.NewToolResultError("target is required"), nil
@@ -90,6 +94,10 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			thread, err := client.GetThreadShallow(target, false)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			if thread.Post.Over18 && !nsfw {
+				return mcp.NewToolResultError("this thread is NSFW — set nsfw=true to view"), nil
 			}
 
 			numComments := thread.Post.NumComments
@@ -125,6 +133,9 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			if !nsfw {
+				posts = filterSFW(posts)
+			}
 			return mcp.NewToolResultText(format.CompactPostList(posts, target, sort, after)), nil
 
 		case "search":
@@ -135,6 +146,9 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			if !nsfw {
+				posts = filterSFW(posts)
+			}
 			return mcp.NewToolResultText(format.CompactSearchResults(posts, target, sub, after)), nil
 
 		case "user":
@@ -142,12 +156,25 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			if !nsfw {
+				posts = filterSFW(posts)
+			}
 			return mcp.NewToolResultText(format.CompactUser(info, posts, comments)), nil
 
 		default:
 			return mcp.NewToolResultError(fmt.Sprintf("unknown command: %s", command)), nil
 		}
 	}
+}
+
+func filterSFW(posts []*reddit.Post) []*reddit.Post {
+	filtered := make([]*reddit.Post, 0, len(posts))
+	for _, p := range posts {
+		if !p.Over18 {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
 }
 
 func lurkInfoTool() mcp.Tool {

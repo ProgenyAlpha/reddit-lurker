@@ -25,7 +25,7 @@ func extractPositionalAndFlags(args []string) (positional string, flags []string
 				// For simplicity, always consume next as value if it exists
 				// Exception: flags like --json, --compact, --no-cache are boolean
 				flagName := strings.TrimLeft(arg, "-")
-				if flagName == "json" || flagName == "compact" || flagName == "no-cache" || flagName == "info" {
+				if flagName == "json" || flagName == "compact" || flagName == "no-cache" || flagName == "info" || flagName == "nsfw" {
 					continue
 				}
 				i++
@@ -46,6 +46,7 @@ func Thread(args []string) {
 	jsonOut := fs.Bool("json", false, "Output raw JSON")
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
+	nsfwFlag := fs.Bool("nsfw", false, "Allow NSFW content")
 	fs.Parse(flags)
 
 	if url == "" {
@@ -57,6 +58,11 @@ func Thread(args []string) {
 	thread, err := client.GetThread(url, *noCache)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
+	}
+
+	if thread.Post.Over18 && !*nsfwFlag {
+		fmt.Fprintln(os.Stderr, "This thread is NSFW. Use --nsfw to view.")
 		os.Exit(1)
 	}
 
@@ -83,6 +89,7 @@ func Subreddit(args []string) {
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
 	info := fs.Bool("info", false, "Show subreddit info instead of posts")
+	nsfwFlag := fs.Bool("nsfw", false, "Include NSFW posts")
 	fs.Parse(flags)
 
 	if name == "" {
@@ -114,6 +121,10 @@ func Subreddit(args []string) {
 		os.Exit(1)
 	}
 
+	if !*nsfwFlag {
+		posts = cliFilterSFW(posts)
+	}
+
 	switch {
 	case *jsonOut:
 		fmt.Println(format.ToJSON(posts))
@@ -130,7 +141,7 @@ func Search(args []string) {
 	query, flags := extractPositionalAndFlags(args)
 
 	fs := flag.NewFlagSet("search", flag.ExitOnError)
-	sub := fs.String("sub", "", "Restrict to subreddit")
+	sub := fs.String("sub", "", "Restrict to subreddit(s) (comma-separated)")
 	sort := fs.String("sort", "relevance", "Sort order (relevance, hot, top, new, comments)")
 	limit := fs.Int("limit", 25, "Number of results")
 	timeFilter := fs.String("time", "", "Time filter (hour, day, week, month, year, all)")
@@ -138,6 +149,7 @@ func Search(args []string) {
 	jsonOut := fs.Bool("json", false, "Output raw JSON")
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
+	nsfwFlag := fs.Bool("nsfw", false, "Include NSFW posts")
 	fs.Parse(flags)
 
 	if query == "" {
@@ -150,6 +162,10 @@ func Search(args []string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
+	}
+
+	if !*nsfwFlag {
+		posts = cliFilterSFW(posts)
 	}
 
 	switch {
@@ -171,6 +187,7 @@ func User(args []string) {
 	jsonOut := fs.Bool("json", false, "Output raw JSON")
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
+	nsfwFlag := fs.Bool("nsfw", false, "Include NSFW posts")
 	fs.Parse(flags)
 
 	if username == "" {
@@ -185,6 +202,10 @@ func User(args []string) {
 		os.Exit(1)
 	}
 
+	if !*nsfwFlag {
+		posts = cliFilterSFW(posts)
+	}
+
 	switch {
 	case *jsonOut:
 		fmt.Println(format.ToJSON(map[string]any{
@@ -197,4 +218,14 @@ func User(args []string) {
 	default:
 		fmt.Print(format.FormatUser(info, posts, comments))
 	}
+}
+
+func cliFilterSFW(posts []*reddit.Post) []*reddit.Post {
+	filtered := make([]*reddit.Post, 0, len(posts))
+	for _, p := range posts {
+		if !p.Over18 {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
 }
