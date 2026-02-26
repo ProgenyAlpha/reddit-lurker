@@ -294,10 +294,10 @@ Real numbers from live Reddit threads (February 2025):
 | 25-comment announcement | 25 / 25 (100%) | ~786 tokens | **74%** | ~0.3s |
 | 83-comment discussion | 80 / 83 (96%) | ~1,905 tokens | **79%** | ~1.4s |
 | 109-comment deep thread | 104 / 109 (95%) | ~3,050 tokens | **79%** | ~0.6s |
-| 348-comment mega thread | 333 / 348 (95%) | ~7,889 tokens | **77%** | ~2.9s |
-| 1,092-comment mega thread | 461 / 1,092 (42%) | ~19,709 tokens | **77%** | ~28s |
+| 348-comment mega thread | 340 / 348 (98%) | ~8,100 tokens | **77%** | ~3.2s |
+| 1,092-comment mega thread | 805 / 1,092 (74%) | ~34,500 tokens | **77%** | ~4.8s |
 
-Compact notation saves 74-79% of tokens compared to raw JSON. Most threads return 95%+ of comments. Threads over ~500 comments hit Reddit's unauthenticated response cap — Lurker still gets ~460 comments with full depth, which is more than any other unauthenticated tool manages. Reddit allows burst requests averaged over a 10-minute window, so even large threads with multiple expansion passes stay within limits.
+Compact notation saves 74-79% of tokens compared to raw JSON. Most threads return 95%+ of comments. Mega threads (1,000+) hit diminishing returns as Reddit counts deleted/removed comments in the total but no longer serves content for them — the ~287 "missing" comments in the 1,092 thread are ghosts. Lurker recursively expands every collapsed branch Reddit is willing to return.
 
 ## Error Handling
 
@@ -318,7 +318,7 @@ Deleted comments show as `[deleted]` in the output — Reddit still counts them 
 
 - **Public content only.** Private, restricted, and quarantined subreddits require OAuth, which Lurker doesn't support.
 - **Unauthenticated rate limit.** 10 requests/minute with automatic retry and exponential backoff. Large threads may take longer to fully expand.
-- **~500 comment cap on mega threads.** Reddit limits initial responses to 500 comments. Lurker then expands collapsed branches recursively, reaching 95%+ on threads under 500 comments. Threads over 1,000 cap around ~460 — still far more than any unauthenticated tool, but not the complete set.
+- **Deleted comments count but don't exist.** Reddit's comment count includes deleted and removed comments that no longer serve content. A "1,092-comment" thread may only have ~805 live comments. Lurker fetches everything Reddit returns — the gap is ghosts.
 - **No NSFW age gates.** Some NSFW subreddits gate content behind login even for public posts.
 
 ---

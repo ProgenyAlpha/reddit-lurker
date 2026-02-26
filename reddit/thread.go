@@ -3,6 +3,7 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -71,6 +72,135 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 	}
 
 	return thread, nil
+}
+
+// GetThreadShallow fetches a thread without expanding collapsed comments.
+// Returns the initial ~500 comments from Reddit's first response.
+func (c *Client) GetThreadShallow(permalink string, noCache bool) (*Thread, error) {
+	permalink = extractPermalink(permalink)
+
+	if !strings.Contains(permalink, "/comments/") {
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
+	}
+
+	if !strings.HasSuffix(permalink, "/") {
+		permalink += "/"
+	}
+
+	path := permalink + ".json?limit=500"
+
+	data, err := c.Fetch(path, noCache)
+	if err != nil {
+		return nil, fmt.Errorf("fetching thread: %w", err)
+	}
+
+	var listings []Listing
+	if err := json.Unmarshal(data, &listings); err != nil {
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
+	}
+
+	if len(listings) < 2 {
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
+	}
+
+	if len(listings[0].Data.Children) == 0 {
+		return nil, fmt.Errorf("thread has no post — it may have been deleted or removed")
+	}
+
+	post := ParsePost(listings[0].Data.Children[0].Data)
+
+	var comments []*Comment
+	for _, thing := range listings[1].Data.Children {
+		comment := parseComment(thing.Kind, thing.Data)
+		if comment != nil {
+			comments = append(comments, comment)
+		}
+	}
+
+	return &Thread{Post: post, Comments: comments}, nil
+}
+
+// ExpandThread recursively expands "more" placeholders (up to 10 passes).
+func (c *Client) ExpandThread(thread *Thread, noCache bool) {
+	for i := 0; i < 10; i++ {
+		if expandMoreComments(c, thread, noCache) == 0 {
+			break
+		}
+	}
+}
+
+// TopCommentsByScore flattens the comment tree and returns the top N by score.
+func TopCommentsByScore(comments []*Comment, limit int) []*Comment {
+	var flat []*Comment
+	var walk func([]*Comment)
+	walk = func(cs []*Comment) {
+		for _, c := range cs {
+			if c == nil || c.IsMore {
+				continue
+			}
+			flat = append(flat, &Comment{
+				ID:       c.ID,
+				ParentID: c.ParentID,
+				Author:   c.Author,
+				Body:     c.Body,
+				Score:    c.Score,
+				Depth:    c.Depth,
+				Created:  c.Created,
+				Stickied: c.Stickied,
+			})
+			if len(c.Replies) > 0 {
+				walk(c.Replies)
+			}
+		}
+	}
+	walk(comments)
+
+	sort.Slice(flat, func(i, j int) bool {
+		return flat[i].Score > flat[j].Score
+	})
+
+	if limit > 0 && limit < len(flat) {
+		flat = flat[:limit]
+	}
+	return flat
+}
+
+// CountComments counts all non-"more" comments in a tree.
+func CountComments(comments []*Comment) int {
+	count := 0
+	var walk func([]*Comment)
+	walk = func(cs []*Comment) {
+		for _, c := range cs {
+			if c == nil || c.IsMore {
+				continue
+			}
+			count++
+			if len(c.Replies) > 0 {
+				walk(c.Replies)
+			}
+		}
+	}
+	walk(comments)
+	return count
+}
+
+// EstimateTokens estimates token count for a comment tree (~4 chars per token).
+func EstimateTokens(comments []*Comment) int {
+	chars := 0
+	var walk func([]*Comment)
+	walk = func(cs []*Comment) {
+		for _, c := range cs {
+			if c == nil || c.IsMore {
+				continue
+			}
+			chars += len(c.Body) + len(c.Author) + 20 // body + author + formatting overhead
+			if len(c.Replies) > 0 {
+				walk(c.Replies)
+			}
+		}
+	}
+	walk(comments)
+	return chars / 4
 }
 
 // expandMoreComments walks the comment tree, collects all "more" placeholders,

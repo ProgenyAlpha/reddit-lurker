@@ -57,7 +57,7 @@ Compact notation:
 			mcp.Description("Sort: hot, new, top, rising, controversial, relevance, comments"),
 		),
 		mcp.WithNumber("limit",
-			mcp.Description("Max results (default 25)"),
+			mcp.Description("Max results (default 25). For threads: limits comments sorted by score (0=all, N=top N). Threads with 200+ comments show a preview unless limit is set."),
 		),
 		mcp.WithString("time",
 			mcp.Description("Time filter: hour, day, week, month, year, all"),
@@ -81,12 +81,40 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("target is required"), nil
 		}
 
+		// Check if limit was explicitly provided (distinguish "not set" from "set to 0")
+		args := req.GetArguments()
+		_, limitSet := args["limit"]
+
 		switch command {
 		case "thread":
-			thread, err := client.GetThread(target, false)
+			thread, err := client.GetThreadShallow(target, false)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+
+			numComments := thread.Post.NumComments
+			shallowCount := reddit.CountComments(thread.Comments)
+
+			if numComments > 200 && !limitSet {
+				// Large thread, no explicit limit — return preview + warning
+				output := format.CompactThread(thread)
+				estTokensK := (reddit.EstimateTokens(thread.Comments) * numComments / max(shallowCount, 1)) / 1024
+				if estTokensK < 1 {
+					estTokensK = 1
+				}
+				warning := fmt.Sprintf(
+					"\n#warning\t%d total comments, showing %d. Use limit=N for top N by score, or limit=0 for all (~%dK tokens).\n",
+					numComments, shallowCount, estTokensK)
+				return mcp.NewToolResultText(output + warning), nil
+			}
+
+			// Full expansion
+			client.ExpandThread(thread, false)
+
+			if limitSet && limit > 0 {
+				thread.Comments = reddit.TopCommentsByScore(thread.Comments, limit)
+			}
+
 			return mcp.NewToolResultText(format.CompactThread(thread)), nil
 
 		case "subreddit":
