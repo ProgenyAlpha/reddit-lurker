@@ -131,21 +131,35 @@ func authStatus() {
 }
 
 func authClear() {
-	path := credentialsPath()
+	path, err := credentialsPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to determine config directory: %s\n", err)
+		os.Exit(1)
+	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Failed to remove credentials: %s\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Credentials removed. Lurk will use anonymous access (10 req/min).")
+	if os.Getenv("LURK_CLIENT_ID") != "" || os.Getenv("LURK_CLIENT_SECRET") != "" {
+		fmt.Println("Credentials file removed. OAuth may still be active via LURK_CLIENT_ID/LURK_CLIENT_SECRET env vars.")
+	} else {
+		fmt.Println("Credentials removed. Lurk will use anonymous access (10 req/min).")
+	}
 }
 
-func credentialsPath() string {
-	configDir, _ := os.UserConfigDir()
-	return filepath.Join(configDir, "lurk", "credentials.json")
+func credentialsPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "lurk", "credentials.json"), nil
 }
 
 func saveCredentials(creds reddit.Credentials) error {
-	path := credentialsPath()
+	path, err := credentialsPath()
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}

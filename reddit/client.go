@@ -131,6 +131,7 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 	}
 
 	var lastErr error
+	oauth401Retried := false
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			time.Sleep(retryDelay * time.Duration(attempt))
@@ -179,6 +180,12 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 		case resp.StatusCode == 301 || resp.StatusCode == 302:
 			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
 		case resp.StatusCode == 401:
+			if c.oauth != nil && !oauth401Retried {
+				oauth401Retried = true
+				c.oauth.invalidate()
+				lastErr = fmt.Errorf("OAuth token expired, refreshing")
+				continue
+			}
 			if c.oauth != nil {
 				return nil, fmt.Errorf("OAuth credentials rejected — run 'lurk auth --status' to check")
 			}
@@ -217,6 +224,7 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 	}
 
 	var lastErr error
+	oauth401Retried := false
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			time.Sleep(retryDelay * time.Duration(attempt))
@@ -266,6 +274,12 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 		case resp.StatusCode == 301 || resp.StatusCode == 302:
 			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
 		case resp.StatusCode == 401:
+			if c.oauth != nil && !oauth401Retried {
+				oauth401Retried = true
+				c.oauth.invalidate()
+				lastErr = fmt.Errorf("OAuth token expired, refreshing")
+				continue
+			}
 			if c.oauth != nil {
 				return nil, fmt.Errorf("OAuth credentials rejected — run 'lurk auth --status' to check")
 			}

@@ -14,15 +14,21 @@ import (
 )
 
 const (
-	oauthBaseURL = "https://oauth.reddit.com"
-	tokenURL     = "https://www.reddit.com/api/v1/access_token"
-	tokenExpiry  = 23 * time.Hour // Reddit tokens last 24h, refresh early
+	oauthBaseURL    = "https://oauth.reddit.com"
+	tokenURL        = "https://www.reddit.com/api/v1/access_token"
+	tokenExpiryFallback = 23 * time.Hour // fallback if server doesn't provide expires_in
 )
 
 // Credentials holds Reddit OAuth app credentials.
 type Credentials struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+}
+
+// tokenResult holds a token and its TTL from the OAuth response.
+type tokenResult struct {
+	AccessToken string
+	ExpiresIn   time.Duration
 }
 
 // oauthToken holds a bearer token and its expiry.
@@ -37,8 +43,11 @@ type oauthToken struct {
 // LoadCredentials reads OAuth credentials.
 // Priority: env vars (LURK_CLIENT_ID/LURK_CLIENT_SECRET) > config file (~/.config/lurk/credentials.json).
 func LoadCredentials() (Credentials, error) {
-	// Check env vars first (useful for MCP server config)
-	if id, secret := os.Getenv("LURK_CLIENT_ID"), os.Getenv("LURK_CLIENT_SECRET"); id != "" && secret != "" {
+	id, secret := os.Getenv("LURK_CLIENT_ID"), os.Getenv("LURK_CLIENT_SECRET")
+	if id != "" || secret != "" {
+		if id == "" || secret == "" {
+			return Credentials{}, fmt.Errorf("both LURK_CLIENT_ID and LURK_CLIENT_SECRET must be set together")
+		}
 		return Credentials{ClientID: id, ClientSecret: secret}, nil
 	}
 
@@ -65,11 +74,11 @@ func TestCredentials(clientID, clientSecret string) error {
 }
 
 // fetchToken exchanges client credentials for a bearer token.
-func fetchToken(httpClient *http.Client, clientID, clientSecret string) (string, error) {
+func fetchToken(httpClient *http.Client, clientID, clientSecret string) (*tokenResult, error) {
 	form := url.Values{"grant_type": {"client_credentials"}}
 	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.SetBasicAuth(clientID, clientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -77,17 +86,17 @@ func fetchToken(httpClient *http.Client, clientID, clientSecret string) (string,
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("network error contacting Reddit auth")
+		return nil, fmt.Errorf("network error contacting Reddit auth")
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read auth response")
+		return nil, fmt.Errorf("failed to read auth response")
 	}
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("Reddit rejected credentials (HTTP %d)", resp.StatusCode)
+		return nil, fmt.Errorf("Reddit rejected credentials (HTTP %d)", resp.StatusCode)
 	}
 
 	var tokenResp struct {
@@ -97,16 +106,25 @@ func fetchToken(httpClient *http.Client, clientID, clientSecret string) (string,
 		Error       string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return "", fmt.Errorf("unexpected auth response format")
+		return nil, fmt.Errorf("unexpected auth response format")
 	}
 	if tokenResp.Error != "" {
-		return "", fmt.Errorf("auth error: %s", tokenResp.Error)
+		return nil, fmt.Errorf("auth error: %s", tokenResp.Error)
 	}
 	if tokenResp.AccessToken == "" {
-		return "", fmt.Errorf("no access token in response")
+		return nil, fmt.Errorf("no access token in response")
 	}
 
-	return tokenResp.AccessToken, nil
+	ttl := tokenExpiryFallback
+	if tokenResp.ExpiresIn > 0 {
+		// Use server TTL with a 60s safety margin
+		ttl = time.Duration(tokenResp.ExpiresIn)*time.Second - 60*time.Second
+		if ttl < time.Minute {
+			ttl = time.Minute
+		}
+	}
+
+	return &tokenResult{AccessToken: tokenResp.AccessToken, ExpiresIn: ttl}, nil
 }
 
 // newOAuthToken creates a token manager that auto-refreshes.
@@ -135,12 +153,20 @@ func (t *oauthToken) get() (string, error) {
 		return t.token, nil
 	}
 
-	token, err := fetchToken(t.http, t.creds.ClientID, t.creds.ClientSecret)
+	result, err := fetchToken(t.http, t.creds.ClientID, t.creds.ClientSecret)
 	if err != nil {
 		return "", err
 	}
 
-	t.token = token
-	t.expiresAt = time.Now().Add(tokenExpiry)
-	return token, nil
+	t.token = result.AccessToken
+	t.expiresAt = time.Now().Add(result.ExpiresIn)
+	return t.token, nil
+}
+
+// invalidate clears the cached token, forcing a refresh on the next get() call.
+func (t *oauthToken) invalidate() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.token = ""
+	t.expiresAt = time.Time{}
 }
