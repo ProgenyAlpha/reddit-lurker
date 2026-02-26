@@ -101,6 +101,18 @@ func CheckForUpdate(currentVersion string) {
 		return
 	}
 
+	// Respect LURK_NO_UPDATE_CHECK environment variable
+	if os.Getenv("LURK_NO_UPDATE_CHECK") != "" {
+		return
+	}
+
+	// Respect config file opt-out
+	if data, err := os.ReadFile(filepath.Join(configPath(), "no-update-check")); err == nil {
+		if strings.TrimSpace(string(data)) != "" {
+			return
+		}
+	}
+
 	configDir := configPath()
 	lastCheckFile := filepath.Join(configDir, "last-check")
 

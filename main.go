@@ -71,6 +71,11 @@ Flags:
   --compact          Output compact notation (default in MCP mode)
   --no-cache         Skip cache
 
+Environment:
+  LURK_NO_UPDATE_CHECK=1    Disable background update checks
+
+  Or create ~/.config/lurk/no-update-check with any content.
+
 Examples:
   lurk thread "https://www.reddit.com/r/ClaudeAI/comments/abc123/post_title/"
   lurk subreddit ClaudeAI --sort top --limit 10
