@@ -170,6 +170,31 @@ If you installed the binary yourself, add lurk to your editor's MCP config:
 }
 ```
 
+## Updates
+
+Lurk checks for new versions once every 24 hours (background, non-blocking, 3-second timeout). If a newer release exists, you'll see a one-line notice after your command finishes.
+
+```bash
+lurk update              # Download and install latest
+lurk update --check      # Check only, don't install
+```
+
+If you installed via npm, brew, or `go install`, `lurk update` will detect that and tell you to use your package manager instead.
+
+### Disable Update Checks
+
+If you don't want any phone-home behavior:
+
+```bash
+# Option 1: environment variable
+export LURK_NO_UPDATE_CHECK=1
+
+# Option 2: config file
+mkdir -p ~/.config/lurk && echo "disabled" > ~/.config/lurk/no-update-check
+```
+
+This only disables the background check. `lurk update` still works manually.
+
 ## Usage
 
 Just talk to Claude naturally:
