@@ -87,7 +87,15 @@ Reddit still serves full JSON on every public page. Lurker uses that. No signup,
 curl -fsSL https://raw.githubusercontent.com/ProgenyAlpha/reddit-lurker/master/install.sh | bash
 ```
 
-No Node. No Go. No nothing. Downloads the binary for your platform and walks you through editor setup. Supports Claude Code, Cursor, Windsurf, VS Code, Cline, and Zed.
+No Node. No Go. No nothing. Downloads the binary for your platform and walks you through editor setup. Supports Claude Code, Cursor, Windsurf, VS Code, Cline, and Zed. Works on Linux and macOS.
+
+### Windows Install
+
+```powershell
+irm https://raw.githubusercontent.com/ProgenyAlpha/reddit-lurker/master/install.ps1 | iex
+```
+
+Same interactive setup, installs to `%LOCALAPPDATA%\lurk` and adds it to your PATH.
 
 ### Node Install
 

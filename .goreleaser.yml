@@ -10,6 +10,7 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
@@ -17,11 +18,15 @@ builds:
 archives:
   - format: tar.gz
     name_template: "lurk-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
     files:
       - LICENSE
       - README.md
       - skill/SKILL.md
       - install.sh
+      - install.ps1
 
 checksum:
   name_template: checksums.txt

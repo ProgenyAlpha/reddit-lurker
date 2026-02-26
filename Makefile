@@ -10,7 +10,7 @@ build: $(BINARY)
 $(BINARY): $(GOFILES)
 	go build $(LDFLAGS) -o $(BINARY) .
 
-all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64 build-windows-amd64 build-windows-arm64
 
 build-linux-amd64:
 	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 .
@@ -23,6 +23,12 @@ build-darwin-amd64:
 
 build-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 .
+
+build-windows-amd64:
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe .
+
+build-windows-arm64:
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-arm64.exe .
 
 install: build
 	cp $(BINARY) $(HOME)/.local/bin/$(BINARY)
