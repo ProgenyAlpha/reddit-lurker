@@ -17,7 +17,10 @@ const (
 	maxRetries     = 3
 	retryDelay     = 2 * time.Second
 	cacheTTL       = 15 * time.Minute
-	unauthRateLimit = 10 // requests per minute
+	// Reddit's unauthenticated limit is 10 req/min averaged over 10 minutes,
+	// which allows bursting. We use a 10-minute window with 100 tokens.
+	rateLimitWindow = 10 * time.Minute
+	rateLimitTokens = 100
 )
 
 // Client handles all Reddit API communication.
@@ -54,13 +57,13 @@ func (rl *rateLimiter) wait() {
 
 	now := time.Now()
 	elapsed := now.Sub(rl.lastFill)
-	if elapsed >= time.Minute {
+	if elapsed >= rateLimitWindow {
 		rl.tokens = rl.max
 		rl.lastFill = now
 	}
 
 	if rl.tokens <= 0 {
-		wait := time.Minute - elapsed
+		wait := rateLimitWindow - elapsed
 		time.Sleep(wait)
 		rl.tokens = rl.max
 		rl.lastFill = time.Now()
@@ -78,7 +81,7 @@ func NewClient() *Client {
 			},
 		},
 		cache:   make(map[string]*cacheEntry),
-		limiter: newRateLimiter(unauthRateLimit),
+		limiter: newRateLimiter(rateLimitTokens),
 	}
 }
 

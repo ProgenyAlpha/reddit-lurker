@@ -23,7 +23,8 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 		permalink += "/"
 	}
 
-	path := permalink + ".json"
+	// Request max comments from Reddit (default is ~200, max is 500)
+	path := permalink + ".json?limit=500"
 
 	data, err := c.Fetch(path, noCache)
 	if err != nil {

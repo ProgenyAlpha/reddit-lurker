@@ -78,7 +78,7 @@ Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 - Adds OAuth complexity and token management for what should be a read-only operation
 - Keys can expire mid-workflow
 
-Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (10 req/min) with automatic retry and backoff.
+Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (100 req/10min burst window) with automatic retry and backoff.
 
 **Note:** Lurker only works with public subreddits and posts. Private and restricted subreddits require authentication, which Lurker does not support at this time.
 
@@ -289,14 +289,15 @@ Lurker pulled 104 comments from that thread on the first call — no "fetch more
 
 Real numbers from live Reddit threads (February 2025):
 
-| Thread | Comments | Compact | JSON | Savings | Fetch time |
-|--------|----------|---------|------|---------|------------|
-| 25-comment announcement | 25 | ~786 tokens | ~3,046 tokens | **74%** | 257ms |
-| 83-comment discussion | 80 | ~1,905 tokens | ~9,330 tokens | **79%** | 567ms |
-| 109-comment deep thread | 104 | ~3,050 tokens | ~15,007 tokens | **79%** | 588ms |
-| 348-comment mega thread | 183 | ~7,889 tokens | ~34,609 tokens | **77%** | 2.1s |
+| Thread | Comments fetched | Compact | Savings vs JSON | Fetch time |
+|--------|-----------------|---------|-----------------|------------|
+| 25-comment announcement | 25 / 25 (100%) | ~786 tokens | **74%** | ~0.3s |
+| 83-comment discussion | 80 / 83 (96%) | ~1,905 tokens | **79%** | ~1.4s |
+| 109-comment deep thread | 104 / 109 (95%) | ~3,050 tokens | **79%** | ~0.6s |
+| 348-comment mega thread | 333 / 348 (95%) | ~7,889 tokens | **77%** | ~2.9s |
+| 1,092-comment mega thread | 461 / 1,092 (42%) | ~19,709 tokens | **77%** | ~28s |
 
-Compact notation saves 74-79% of tokens compared to raw JSON. A typical thread fetch is 1-3 HTTP requests depending on how many collapsed comment branches need expanding. The rate limiter caps at 10 requests/minute (Reddit's unauthenticated limit), so even a massive thread with multiple expansion batches won't get you rate limited under normal use.
+Compact notation saves 74-79% of tokens compared to raw JSON. Most threads return 95%+ of comments. Threads over ~500 comments hit Reddit's unauthenticated response cap — Lurker still gets ~460 comments with full depth, which is more than any other unauthenticated tool manages. Reddit allows burst requests averaged over a 10-minute window, so even large threads with multiple expansion passes stay within limits.
 
 ## Error Handling
 
@@ -316,8 +317,8 @@ Deleted comments show as `[deleted]` in the output — Reddit still counts them 
 ## Limitations
 
 - **Public content only.** Private, restricted, and quarantined subreddits require OAuth, which Lurker doesn't support.
-- **Unauthenticated rate limit.** 10 requests/minute with automatic retry and exponential backoff. Enough for normal use, not for bulk scraping (and that's intentional).
-- **~200 comment ceiling on mega threads.** Reddit caps what it returns to unauthenticated requests. Threads under ~300 comments typically return in full. Above that, expect ~200 comments — still 2x what most tools manage, but not the complete set. This is a Reddit limitation, not ours. Full access would require OAuth, which defeats the zero-auth design.
+- **Unauthenticated rate limit.** 100 requests per 10 minutes (Reddit allows bursting). Large threads with many expansion batches may take 20-30 seconds. Normal threads return in under 3 seconds.
+- **~500 comment cap on mega threads.** Reddit limits initial responses to 500 comments. Lurker then expands collapsed branches recursively, reaching 95%+ on threads under 500 comments. Threads over 1,000 cap around ~460 — still far more than any unauthenticated tool, but not the complete set.
 - **No NSFW age gates.** Some NSFW subreddits gate content behind login even for public posts.
 
 ---
@@ -406,7 +407,7 @@ Same thread, same structure, **42% fewer tokens than markdown, 77% fewer than JS
 - Appends `.json` to any Reddit URL
 - Recursively walks comment trees to arbitrary depth
 - Fetches `/api/morechildren` to expand collapsed threads (batched, max 100 IDs)
-- Rate limited to 10 req/min (Reddit's unauthenticated limit)
+- Rate limited to 100 req/10min (Reddit's unauthenticated burst window)
 - Retries 429/5xx with exponential backoff (3 attempts)
 - In-memory cache with 15-minute TTL
 
