@@ -222,10 +222,26 @@ lurk auth --status   # Check if credentials are configured
 lurk auth --clear    # Remove saved credentials
 ```
 
-You can also set credentials via environment variables:
-```bash
-export LURK_CLIENT_ID=your_client_id
-export LURK_CLIENT_SECRET=your_client_secret
+You can also set credentials via environment variables in your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "lurk": {
+      "command": "npx",
+      "args": ["-y", "reddit-lurker"],
+      "env": {
+        "LURK_CLIENT_ID": "your_client_id",
+        "LURK_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+Or via a credentials file at `~/.config/lurk/credentials.json`:
+```json
+{"client_id": "your_client_id", "client_secret": "your_client_secret"}
 ```
 
 ## Usage

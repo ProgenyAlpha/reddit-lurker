@@ -58,11 +58,27 @@ This downloads the platform binary and runs the MCP server. Add it to your edito
 
 ## OAuth (Optional)
 
-For 6x rate limits (60 req/min instead of 10), set environment variables:
+For 6x rate limits (60 req/min instead of 10), create a Reddit app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) (type: "script"), then add `env` to your MCP config:
 
-```bash
-LURK_CLIENT_ID=your_client_id
-LURK_CLIENT_SECRET=your_client_secret
+**Claude Code, Cursor, Windsurf, Cline:**
+```json
+{
+  "mcpServers": {
+    "lurk": {
+      "command": "npx",
+      "args": ["-y", "reddit-lurker"],
+      "env": {
+        "LURK_CLIENT_ID": "your_client_id",
+        "LURK_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+Or use a credentials file at `~/.config/lurk/credentials.json`:
+```json
+{"client_id": "your_client_id", "client_secret": "your_client_secret"}
 ```
 
 Or use `lurk auth` from the standalone binary for interactive setup.
