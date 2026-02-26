@@ -1,3 +1,7 @@
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/github/license/ProgenyAlpha/reddit-lurker)](https://github.com/ProgenyAlpha/reddit-lurker/blob/master/LICENSE)
+[![Release](https://img.shields.io/github/v/release/ProgenyAlpha/reddit-lurker)](https://github.com/ProgenyAlpha/reddit-lurker/releases)
+
 ```
   ██████╗ ███████╗██████╗ ██████╗ ██╗████████╗
   ██╔══██╗██╔════╝██╔══██╗██╔══██╗██║╚══██╔══╝
