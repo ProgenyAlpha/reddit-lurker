@@ -124,7 +124,7 @@ The installer walks you through editor selection and integration mode.
 | Claude Code | `~/.claude.json` or `~/.claude/skills/reddit/` | `mcpServers` |
 | Cursor | `~/.cursor/mcp.json` | `mcpServers` |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` |
-| VS Code | `~/.config/Code/User/mcp.json` | `servers` |
+| VS Code | `~/.config/Code/User/mcp.json` (Linux) / `~/Library/.../Code/User/mcp.json` (macOS) | `servers` |
 | Cline | VS Code globalStorage (auto-detected) | `mcpServers` |
 | Zed | `~/.config/zed/settings.json` | `context_servers` |
 

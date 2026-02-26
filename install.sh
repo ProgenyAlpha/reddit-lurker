@@ -7,6 +7,7 @@ INSTALL_DIR="$HOME/.local/bin"
 SKILL_DIR="$HOME/.claude/skills/reddit"
 CLAUDE_CONFIG="$HOME/.claude.json"
 VERSION="1.0.0"
+BINARY_INSTALLED=false
 
 # Colors (if terminal supports them)
 RED='\033[0;31m'
@@ -50,16 +51,40 @@ if [ -f "./main.go" ] && [ -f "./go.mod" ]; then
 else
     # Running via curl | bash — download prebuilt binary
     ARCHIVE="lurk-${OS}-${ARCH}.tar.gz"
+    CHECKSUM_FILE="checksums.txt"
     URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}"
+    CHECKSUM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${CHECKSUM_FILE}"
 
     info "Downloading lurk v${VERSION} for ${OS}/${ARCH}..."
 
     if command -v curl &>/dev/null; then
         curl -fsSL "$URL" -o "$TMPDIR/$ARCHIVE" || fail "Download failed. Is v${VERSION} released? Check https://github.com/${REPO}/releases"
+        curl -fsSL "$CHECKSUM_URL" -o "$TMPDIR/$CHECKSUM_FILE" 2>/dev/null || true
     elif command -v wget &>/dev/null; then
         wget -q "$URL" -O "$TMPDIR/$ARCHIVE" || fail "Download failed. Is v${VERSION} released? Check https://github.com/${REPO}/releases"
+        wget -q "$CHECKSUM_URL" -O "$TMPDIR/$CHECKSUM_FILE" 2>/dev/null || true
     else
         fail "Need curl or wget to download the binary"
+    fi
+
+    # Verify checksum if available
+    if [ -f "$TMPDIR/$CHECKSUM_FILE" ]; then
+        expected=$(grep "$ARCHIVE" "$TMPDIR/$CHECKSUM_FILE" | awk '{print $1}')
+        if [ -n "$expected" ]; then
+            if command -v sha256sum &>/dev/null; then
+                actual=$(sha256sum "$TMPDIR/$ARCHIVE" | awk '{print $1}')
+            elif command -v shasum &>/dev/null; then
+                actual=$(shasum -a 256 "$TMPDIR/$ARCHIVE" | awk '{print $1}')
+            else
+                actual=""
+                warn "No sha256sum or shasum found, skipping checksum verification"
+            fi
+            if [ -n "$actual" ] && [ "$expected" != "$actual" ]; then
+                fail "Checksum verification failed (expected $expected, got $actual)"
+            elif [ -n "$actual" ]; then
+                ok "Checksum verified"
+            fi
+        fi
     fi
 
     tar xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR"
@@ -67,9 +92,12 @@ else
     ok "Downloaded $BINARY"
 fi
 
-# ─── Install binary to PATH ──────────────────────────────────
+# ─── Install binary helpers ──────────────────────────────────
 
-install_binary_to_path() {
+ensure_binary_in_path() {
+    if [ "$BINARY_INSTALLED" = true ]; then
+        return
+    fi
     mkdir -p "$INSTALL_DIR"
     if ! cp "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY" 2>/dev/null; then
         warn "Binary is locked (MCP server running?). Copying with new name..."
@@ -84,6 +112,7 @@ install_binary_to_path() {
         warn "$INSTALL_DIR is not in your PATH."
         warn "Add it: export PATH=\"\$HOME/.local/bin:\$PATH\""
     fi
+    BINARY_INSTALLED=true
 }
 
 install_binary_to_skill() {
@@ -116,20 +145,22 @@ editor="${editor:-1}"
 
 choose_mode() {
     local editor_name="$1"
-    echo
-    echo -e "${BOLD}How should ${editor_name} use lurk?${NC}"
-    echo
-    echo "  1) Skill (recommended) — Claude Code only"
-    echo "     Claude runs lurk via Bash when it sees Reddit URLs."
-    echo "     ~20 tokens of context overhead."
-    echo
-    echo "  2) MCP server"
-    echo "     Native tool integration — no Bash needed."
-    echo "     ~438 tokens of context overhead. Pick this for heavy Reddit use."
-    echo
-    read -rp "Choose [1/2] (default: 1): " mode
+    {
+        echo
+        echo -e "${BOLD}How should ${editor_name} use lurk?${NC}"
+        echo
+        echo "  1) Skill (recommended) — Claude Code only"
+        echo "     Claude runs lurk via Bash when it sees Reddit URLs."
+        echo "     ~20 tokens of context overhead."
+        echo
+        echo "  2) MCP server"
+        echo "     Native tool integration — no Bash needed."
+        echo "     ~438 tokens of context overhead. Pick this for heavy Reddit use."
+        echo
+    } >&2
+    read -rp "Choose [1/2] (default: 1): " mode </dev/tty
     mode="${mode:-1}"
-    echo "$mode"
+    printf '%s' "$mode"
 }
 
 # ─── Skill install (Claude Code only) ────────────────────────
@@ -196,12 +227,19 @@ SKILLEOF
 # $1 = config file path
 # $2 = top-level key (mcpServers, servers, context_servers)
 # $3 = lurk binary path
-# $4 = extra fields (optional, for Cline)
+# $4 = extra JSON fields (optional, e.g. '"disabled": false')
 write_mcp_config() {
     local config_file="$1"
     local top_key="$2"
     local lurk_path="$3"
     local extra="${4:-}"
+
+    local extra_jq=""
+    local extra_py=""
+    if [ -n "$extra" ]; then
+        extra_jq=", ${extra}"
+        extra_py=", ${extra}"
+    fi
 
     if [ ! -f "$config_file" ]; then
         mkdir -p "$(dirname "$config_file")"
@@ -211,7 +249,8 @@ write_mcp_config() {
   "$top_key": {
     "lurk": {
       "command": "$lurk_path",
-      "args": ["serve"]${extra}
+      "args": ["serve"],
+      ${extra}
     }
   }
 }
@@ -236,9 +275,10 @@ MCPEOF
     if command -v jq &>/dev/null; then
         local tmp
         tmp=$(mktemp)
-        if [ "$top_key" = "context_servers" ]; then
+        if [ -n "$extra" ]; then
+            # Build the full object with extra fields using jq
             jq --arg path "$lurk_path" --arg key "$top_key" \
-                '.[$key].lurk = {"command": $path, "args": ["serve"]}' \
+                '.[$key].lurk = (.[$key].lurk // {}) * {"command": $path, "args": ["serve"]} * {'"$extra"'}' \
                 "$config_file" > "$tmp"
         else
             jq --arg path "$lurk_path" --arg key "$top_key" \
@@ -252,10 +292,9 @@ MCPEOF
 import json
 with open("$config_file") as f:
     config = json.load(f)
-config.setdefault("$top_key", {})["lurk"] = {
-    "command": "$lurk_path",
-    "args": ["serve"]
-}
+entry = {"command": "$lurk_path", "args": ["serve"]}
+$([ -n "$extra" ] && echo "entry.update({$extra_py})")
+config.setdefault("$top_key", {})["lurk"] = entry
 with open("$config_file", "w") as f:
     json.dump(config, f, indent=2)
 PYEOF
@@ -286,39 +325,34 @@ install_claude() {
     esac
 }
 
-install_cursor() {
-    local config_dir="$HOME/.cursor"
-    local config_file="$config_dir/mcp.json"
+configure_cursor() {
+    local config_file="$HOME/.cursor/mcp.json"
     info "Configuring Cursor MCP server"
-    install_binary_to_path
     write_mcp_config "$config_file" "mcpServers" "$INSTALL_DIR/$BINARY"
     ok "Cursor configured (global)"
     warn "Restart Cursor to load the new MCP server."
     warn "MCP tools are available in Agent mode and Composer, not regular chat."
 }
 
-install_windsurf() {
-    local config_dir="$HOME/.codeium/windsurf"
-    local config_file="$config_dir/mcp_config.json"
+configure_windsurf() {
+    local config_file="$HOME/.codeium/windsurf/mcp_config.json"
     info "Configuring Windsurf MCP server"
-    install_binary_to_path
     write_mcp_config "$config_file" "mcpServers" "$INSTALL_DIR/$BINARY"
     ok "Windsurf configured"
     warn "Restart Windsurf to load the new MCP server."
 }
 
-install_vscode() {
-    local config_file="$HOME/.vscode/mcp.json"
+configure_vscode() {
+    local config_file
 
     # VS Code user-level MCP config location varies by OS
     if [ "$OS" = "darwin" ]; then
         config_file="$HOME/Library/Application Support/Code/User/mcp.json"
-    elif [ "$OS" = "linux" ]; then
+    else
         config_file="$HOME/.config/Code/User/mcp.json"
     fi
 
     info "Configuring VS Code (Copilot Chat) MCP server"
-    install_binary_to_path
 
     # VS Code uses "servers" not "mcpServers"
     write_mcp_config "$config_file" "servers" "$INSTALL_DIR/$BINARY"
@@ -327,7 +361,7 @@ install_vscode() {
     warn "Requires VS Code 1.99+ and Copilot Chat in Agent mode."
 }
 
-install_cline() {
+configure_cline() {
     local config_file
 
     if [ "$OS" = "darwin" ]; then
@@ -339,58 +373,24 @@ install_cline() {
     fi
 
     info "Configuring Cline MCP server"
-    install_binary_to_path
-    write_mcp_config "$config_file" "mcpServers" "$INSTALL_DIR/$BINARY" ',
-      "disabled": false,
-      "alwaysAllow": []'
+    write_mcp_config "$config_file" "mcpServers" "$INSTALL_DIR/$BINARY" '"disabled": false, "alwaysAllow": []'
     ok "Cline configured"
     warn "Restart VS Code to load the new MCP server."
 }
 
-install_zed() {
+configure_zed() {
     local config_file="$HOME/.config/zed/settings.json"
     info "Configuring Zed MCP server"
-    install_binary_to_path
-
-    if [ ! -f "$config_file" ]; then
-        mkdir -p "$(dirname "$config_file")"
-        cat > "$config_file" << MCPEOF
-{
-  "context_servers": {
-    "lurk": {
-      "command": "$INSTALL_DIR/$BINARY",
-      "args": ["serve"]
-    }
-  }
-}
-MCPEOF
-        ok "Created $config_file"
-    elif command -v jq &>/dev/null; then
-        local tmp
-        tmp=$(mktemp)
-        jq --arg path "$INSTALL_DIR/$BINARY" \
-            '.context_servers.lurk = {"command": $path, "args": ["serve"]}' \
-            "$config_file" > "$tmp"
-        mv "$tmp" "$config_file"
-        ok "Updated $config_file"
-    elif command -v python3 &>/dev/null; then
-        python3 << PYEOF
-import json
-with open("$config_file") as f:
-    config = json.load(f)
-config.setdefault("context_servers", {})["lurk"] = {
-    "command": "$INSTALL_DIR/$BINARY",
-    "args": ["serve"]
-}
-with open("$config_file", "w") as f:
-    json.dump(config, f, indent=2)
-PYEOF
-        ok "Updated $config_file"
-    else
-        warn "Neither jq nor python3 found. Add lurk manually to $config_file under context_servers."
-    fi
+    write_mcp_config "$config_file" "context_servers" "$INSTALL_DIR/$BINARY"
     warn "Restart Zed to load the new MCP server."
 }
+
+# Standalone editor installers (binary + config)
+install_cursor()   { ensure_binary_in_path; configure_cursor; }
+install_windsurf() { ensure_binary_in_path; configure_windsurf; }
+install_vscode()   { ensure_binary_in_path; configure_vscode; }
+install_cline()    { ensure_binary_in_path; configure_cline; }
+install_zed()      { ensure_binary_in_path; configure_zed; }
 
 install_all() {
     echo
@@ -400,19 +400,21 @@ install_all() {
     # Claude Code gets the skill/MCP choice
     install_claude
 
-    # Everything else gets MCP via binary in PATH
-    install_cursor
-    install_windsurf
-    install_vscode
-    install_cline
-    install_zed
+    # Install binary once for all other editors
+    ensure_binary_in_path
+
+    # Configure each editor
+    configure_cursor
+    configure_windsurf
+    configure_vscode
+    configure_cline
+    configure_zed
 }
 
 install_binary_only() {
     info "Installing binary only"
-    install_binary_to_path
+    ensure_binary_in_path
     echo
-    ok "Binary installed to $INSTALL_DIR/$BINARY"
     echo "Configure your editor manually. See README for config examples."
 }
 
