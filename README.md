@@ -13,7 +13,7 @@
   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 
-**Let Claude read the entire Reddit thread. Not just the first 10 comments.**
+> Full Reddit threads for Claude. No keys. No OAuth. No missing replies.
 
 Reddit killed self-serve API keys in November 2025. Now if you want an LLM to analyze a Reddit thread, your options are:
 
@@ -26,7 +26,33 @@ The best parts of Reddit are buried 4-5 replies deep. The correction. The real a
 
 **Reddit Lurker does.**
 
-It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the full comment tree. No API keys, no OAuth, no approval process. Paste a Reddit URL and Claude gets the entire conversation.
+It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the full comment tree. Paste a Reddit URL and Claude gets the entire conversation.
+
+```
+Post: "I gave Claude the one thing it was missing: memory"
+  164 comments fetched
+  Max depth: 5
+  Collapsed branches expanded: all
+  Authentication required: none
+```
+
+```
+Post
+ +-- Comment (74 pts)
+ |   +-- Reply (26 pts)
+ |   |   +-- Reply (2 pts)
+ |   +-- Reply (6 pts)
+ |       +-- Reply (13 pts)        <-- most tools stop here
+ |           +-- Reply (21 pts)
+ |               +-- Reply (7 pts)
+ |                   +-- Reply (1 pt)   <-- Lurker gets this
+ +-- Comment (16 pts)
+     +-- Reply (20 pts)
+         +-- Reply (8 pts)
+             +-- Reply (1 pt)
+```
+
+Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 
 ## What You Get
 
@@ -38,6 +64,15 @@ It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the 
 - ~42% fewer tokens than markdown output
 - Single Go binary, zero dependencies
 - Read-only by design
+
+## Why Not Use Reddit's Official API?
+
+- Requires approval under the Responsible Builder Policy (self-serve keys no longer available)
+- Returns `"kind": "more"` stubs for deep replies that most clients never expand
+- Adds OAuth complexity and token management
+- Keys can expire mid-workflow
+
+Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (10 req/min) with automatic retry and backoff.
 
 ## Install
 
