@@ -42,7 +42,7 @@ Post: "Finally We have the best agentic AI at home"
  |   +-- Reply (45 pts)              <-- lurk gets all of this too
  |       +-- Reply ...
  +-- Comment (60 pts)
-     +-- +47 more replies (expanded)
+     +-- +47 more replies (expanded)  <-- and this
 ```
 
 **104 of 109 comments. 10 levels deep. Fully automatic.**
