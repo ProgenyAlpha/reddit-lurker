@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/lurker.svg" width="200" alt="Lurker">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/lurker-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/lurker.svg">
+    <img src="assets/lurker.svg" width="200" alt="Lurker">
+  </picture>
 </p>
 
 ```
