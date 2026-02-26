@@ -1,6 +1,6 @@
 {
   "name": "reddit-lurker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Reddit reader for LLMs — full comment trees, 77% fewer tokens, one binary",
   "repository": {
     "type": "git",
