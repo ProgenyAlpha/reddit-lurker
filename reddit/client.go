@@ -3,9 +3,12 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -228,6 +231,8 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 }
 
 // FetchMoreChildren fetches collapsed comment threads using Reddit's /api/morechildren endpoint.
+// The response format differs from normal comments: it returns contentText, parent, and
+// author/score embedded in HTML content rather than structured JSON fields.
 func (c *Client) FetchMoreChildren(linkID string, childrenIDs []string, noCache bool) ([]*Comment, error) {
 	formData := url.Values{}
 	formData.Set("api_type", "json")
@@ -253,13 +258,69 @@ func (c *Client) FetchMoreChildren(linkID string, childrenIDs []string, noCache 
 
 	var comments []*Comment
 	for _, thing := range resp.JSON.Data.Things {
-		comment := parseComment(thing.Kind, thing.Data)
+		if thing.Kind == "more" {
+			comment := parseComment(thing.Kind, thing.Data)
+			if comment != nil {
+				comments = append(comments, comment)
+			}
+			continue
+		}
+		if thing.Kind != "t1" {
+			continue
+		}
+
+		// morechildren returns a different format: contentText for body,
+		// parent for tree position, and author/score in HTML content
+		d := thing.Data
+		comment := parseMoreChildrenComment(d)
 		if comment != nil {
 			comments = append(comments, comment)
 		}
 	}
 
 	return comments, nil
+}
+
+// Regex patterns for parsing morechildren HTML content
+var (
+	reAuthor = regexp.MustCompile(`data-author="([^"]+)"`)
+	reScore  = regexp.MustCompile(`class="score unvoted" title="(-?\d+)"`)
+)
+
+// parseMoreChildrenComment parses the morechildren response format,
+// which uses contentText/parent/content(HTML) instead of the standard comment fields.
+func parseMoreChildrenComment(d map[string]any) *Comment {
+	id := getString(d, "id")
+	// Strip t1_ prefix if present
+	id = strings.TrimPrefix(id, "t1_")
+
+	body := getString(d, "contentText")
+	if body == "" {
+		return nil
+	}
+
+	parentID := getString(d, "parent")
+	parentID = strings.TrimPrefix(parentID, "t1_")
+	parentID = strings.TrimPrefix(parentID, "t3_")
+
+	c := &Comment{
+		ID:       id,
+		Body:     body,
+		ParentID: parentID,
+	}
+
+	// Extract author and score from HTML content
+	content := html.UnescapeString(getString(d, "content"))
+	if m := reAuthor.FindStringSubmatch(content); len(m) > 1 {
+		c.Author = m[1]
+	}
+	if m := reScore.FindStringSubmatch(content); len(m) > 1 {
+		if score, err := strconv.Atoi(m[1]); err == nil {
+			c.Score = score
+		}
+	}
+
+	return c
 }
 
 func (c *Client) getCache(key string) []byte {

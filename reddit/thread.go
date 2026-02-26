@@ -81,15 +81,14 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 		return 0
 	}
 
-	// Collect all "more" placeholders and their parent references
+	// Collect all "more" placeholders
 	type moreRef struct {
-		parent   *[]*Comment // pointer to the slice containing the "more" placeholder
-		index    int         // index within that slice
-		moreIDs  []string
+		parent  *[]*Comment
+		index   int
+		moreIDs []string
 	}
 
 	var mores []moreRef
-
 	var walk func(comments *[]*Comment)
 	walk = func(comments *[]*Comment) {
 		for i, c := range *comments {
@@ -121,6 +120,7 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 
 	const batchSize = 100
 	var fetched []*Comment
+	var fetchedMore []*Comment // new "more" placeholders from expansion
 	for i := 0; i < len(allIDs); i += batchSize {
 		end := i + batchSize
 		if end > len(allIDs) {
@@ -128,46 +128,86 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 		}
 		batch, err := client.FetchMoreChildren(thread.Post.ID, allIDs[i:end], noCache)
 		if err != nil {
-			// Non-fatal: just skip expansion on error
 			continue
 		}
-		fetched = append(fetched, batch...)
+		for _, c := range batch {
+			if c != nil {
+				if c.IsMore {
+					fetchedMore = append(fetchedMore, c)
+				} else {
+					fetched = append(fetched, c)
+				}
+			}
+		}
 	}
 
 	if len(fetched) == 0 {
 		return 0
 	}
 
-	// Build a map of fetched comments by ID for quick lookup
-	fetchedByID := make(map[string]*Comment, len(fetched))
+	// Build a map of all existing comments by ID for parent lookup
+	existingByID := make(map[string]*Comment)
+	var indexExisting func(comments []*Comment)
+	indexExisting = func(comments []*Comment) {
+		for _, c := range comments {
+			if c != nil && !c.IsMore {
+				existingByID[c.ID] = c
+				if len(c.Replies) > 0 {
+					indexExisting(c.Replies)
+				}
+			}
+		}
+	}
+	indexExisting(thread.Comments)
+
+	// Insert fetched comments into the tree by ParentID
+	inserted := 0
+	var orphans []*Comment
 	for _, c := range fetched {
-		if c != nil {
-			fetchedByID[c.ID] = c
+		if parent, ok := existingByID[c.ParentID]; ok {
+			parent.Replies = append(parent.Replies, c)
+			existingByID[c.ID] = c // make it findable for subsequent inserts
+			inserted++
+		} else if c.ParentID == thread.Post.ID {
+			// Top-level comment (parent is the post)
+			thread.Comments = append(thread.Comments, c)
+			existingByID[c.ID] = c
+			inserted++
+		} else {
+			orphans = append(orphans, c)
 		}
 	}
 
-	// Replace "more" placeholders with fetched comments
+	// Second pass: try orphans again (their parent may have been inserted in the first pass)
+	for _, c := range orphans {
+		if parent, ok := existingByID[c.ParentID]; ok {
+			parent.Replies = append(parent.Replies, c)
+			existingByID[c.ID] = c
+			inserted++
+		}
+	}
+
+	// Remove "more" placeholders that were expanded
 	// Process in reverse order to maintain stable indices
 	for i := len(mores) - 1; i >= 0; i-- {
 		m := mores[i]
-		var replacements []*Comment
-		for _, id := range m.moreIDs {
-			if c, ok := fetchedByID[id]; ok {
-				replacements = append(replacements, c)
-			}
-		}
-		if len(replacements) > 0 {
-			// Replace the "more" placeholder with the fetched comments
-			parent := *m.parent
-			newSlice := make([]*Comment, 0, len(parent)-1+len(replacements))
+		parent := *m.parent
+		if m.index < len(parent) {
+			newSlice := make([]*Comment, 0, len(parent)-1)
 			newSlice = append(newSlice, parent[:m.index]...)
-			newSlice = append(newSlice, replacements...)
 			newSlice = append(newSlice, parent[m.index+1:]...)
 			*m.parent = newSlice
 		}
 	}
 
-	return len(fetched)
+	// Add any new "more" placeholders from the expansion to appropriate parents
+	for _, m := range fetchedMore {
+		if parent, ok := existingByID[m.ParentID]; ok {
+			parent.Replies = append(parent.Replies, m)
+		}
+	}
+
+	return inserted
 }
 
 // extractPermalink strips a full Reddit URL down to the path.
@@ -198,8 +238,13 @@ func parseComment(kind string, data map[string]any) *Comment {
 		return nil
 	}
 
+	parentID := getString(data, "parent_id")
+	parentID = strings.TrimPrefix(parentID, "t1_")
+	parentID = strings.TrimPrefix(parentID, "t3_")
+
 	c := &Comment{
 		ID:       getString(data, "id"),
+		ParentID: parentID,
 		Author:   getString(data, "author"),
 		Body:     getString(data, "body"),
 		Score:    getInt(data, "score"),

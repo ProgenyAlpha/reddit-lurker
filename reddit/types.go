@@ -46,6 +46,7 @@ type Post struct {
 // Comment represents a parsed Reddit comment.
 type Comment struct {
 	ID       string
+	ParentID string // parent comment/post ID (used by morechildren insertion)
 	Author   string
 	Body     string
 	Score    int
