@@ -32,6 +32,7 @@ type Client struct {
 	cache     map[string]*cacheEntry
 	cacheMu   sync.RWMutex
 	limiter   *rateLimiter
+	oauth     *oauthToken // nil when unauthenticated
 }
 
 type cacheEntry struct {
@@ -75,17 +76,34 @@ func (rl *rateLimiter) wait() {
 }
 
 // NewClient creates a new Reddit API client.
+// Automatically loads OAuth credentials if available (~/.config/lurk/credentials.json).
 func NewClient() *Client {
-	return &Client{
-		http: &http.Client{
-			Timeout: 30 * time.Second,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
 		},
+	}
+
+	c := &Client{
+		http:    httpClient,
 		cache:   make(map[string]*cacheEntry),
 		limiter: newRateLimiter(rateLimitTokens),
 	}
+
+	// Try loading OAuth credentials — silent fallback to anonymous
+	if creds, err := LoadCredentials(); err == nil && creds.ClientID != "" && creds.ClientSecret != "" {
+		c.oauth = newOAuthToken(httpClient, creds)
+		// Authenticated: 60 req/min = 600 over 10-min window
+		c.limiter = newRateLimiter(600)
+	}
+
+	return c
+}
+
+// IsAuthenticated returns true if OAuth credentials are configured.
+func (c *Client) IsAuthenticated() bool {
+	return c.oauth != nil
 }
 
 // Fetch makes a GET request to the Reddit JSON API with retry, rate limiting, and caching.
@@ -102,9 +120,14 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 
 	c.limiter.wait()
 
-	url := baseURL + path
+	apiBase := baseURL
+	if c.oauth != nil {
+		apiBase = oauthBaseURL
+	}
+
+	url := apiBase + path
 	if path[0] != '/' {
-		url = baseURL + "/" + path
+		url = apiBase + "/" + path
 	}
 
 	var lastErr error
@@ -118,6 +141,13 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 			return nil, fmt.Errorf("creating request: %w", err)
 		}
 		req.Header.Set("User-Agent", userAgent)
+		if c.oauth != nil {
+			token, tokenErr := c.oauth.get()
+			if tokenErr != nil {
+				return nil, fmt.Errorf("OAuth token refresh failed: %w — run 'lurk auth --status' to check credentials", tokenErr)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 
 		resp, err := c.http.Do(req)
 		if err != nil {
@@ -149,6 +179,9 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 		case resp.StatusCode == 301 || resp.StatusCode == 302:
 			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
 		case resp.StatusCode == 401:
+			if c.oauth != nil {
+				return nil, fmt.Errorf("OAuth credentials rejected — run 'lurk auth --status' to check")
+			}
 			return nil, fmt.Errorf("unauthorized — this content may require authentication")
 		default:
 			return nil, fmt.Errorf("unexpected error (HTTP %d)", resp.StatusCode)
@@ -173,9 +206,14 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 
 	c.limiter.wait()
 
-	reqURL := baseURL + path
+	apiBase := baseURL
+	if c.oauth != nil {
+		apiBase = oauthBaseURL
+	}
+
+	reqURL := apiBase + path
 	if path[0] != '/' {
-		reqURL = baseURL + "/" + path
+		reqURL = apiBase + "/" + path
 	}
 
 	var lastErr error
@@ -190,6 +228,13 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 		}
 		req.Header.Set("User-Agent", userAgent)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if c.oauth != nil {
+			token, tokenErr := c.oauth.get()
+			if tokenErr != nil {
+				return nil, fmt.Errorf("OAuth token refresh failed: %w — run 'lurk auth --status' to check credentials", tokenErr)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 
 		resp, err := c.http.Do(req)
 		if err != nil {
@@ -221,6 +266,9 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 		case resp.StatusCode == 301 || resp.StatusCode == 302:
 			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
 		case resp.StatusCode == 401:
+			if c.oauth != nil {
+				return nil, fmt.Errorf("OAuth credentials rejected — run 'lurk auth --status' to check")
+			}
 			return nil, fmt.Errorf("unauthorized — this content may require authentication")
 		default:
 			return nil, fmt.Errorf("unexpected error (HTTP %d)", resp.StatusCode)

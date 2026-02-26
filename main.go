@@ -33,6 +33,8 @@ func main() {
 		cmd.User(os.Args[2:])
 	case "serve":
 		cmd.Serve(version)
+	case "auth":
+		cmd.Auth(os.Args[2:])
 	case "update":
 		cmd.Update(version, os.Args[2:])
 	case "version", "--version", "-v":
@@ -60,6 +62,7 @@ Usage:
   lurk search <query> [flags]                Search Reddit
   lurk user <username> [flags]               View user activity
   lurk serve                                 Start MCP stdio server
+  lurk auth                                    Set up Reddit OAuth (6x rate limit)
   lurk update [--check] [--force]             Check for and install updates
 
 Flags:
@@ -72,6 +75,8 @@ Flags:
   --no-cache         Skip cache
 
 Environment:
+  LURK_CLIENT_ID=...        Reddit OAuth client ID (overrides saved credentials)
+  LURK_CLIENT_SECRET=...    Reddit OAuth client secret
   LURK_NO_UPDATE_CHECK=1    Disable background update checks
 
   Or create ~/.config/lurk/no-update-check with any content.
