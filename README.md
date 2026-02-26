@@ -206,19 +206,52 @@ Just talk to Claude naturally:
 
 Claude handles the rest. No commands to memorize.
 
-## The Difference
+## Real Example
 
-**Without Reddit Lurker:**
-- 12 top-level comments
-- No nested replies
-- Missing half the conversation
-- "kind: more" objects silently dropped
+Here's what Lurker actually outputs for a [109-comment r/LocalLLM thread](https://www.reddit.com/r/LocalLLM/comments/1qp880l/finally_we_have_the_best_agentic_ai_at_home/) about running Kimi K2.5 at home.
 
-**With Reddit Lurker:**
-- 137 comments, full depth
-- Every collapsed thread expanded
-- Complete conversational context
-- Structure preserved for LLM analysis
+**What most tools give Claude:**
+```
+# Finally We have the best agentic AI at home
+u/moks4tda | 422 pts | r/LocalLLM
+
+u/Recent-Success-1520 (180 pts)
+  If you can host Kimi 2.5 1T+ model at home then it tells
+  me you have a really big home
+
+u/No_Conversation9561 (82 pts)
+  not in my home
+
+u/rookan (60 pts)
+  yeah, my 16GB VRAM card can easily handle it /s
+
+... 12 top-level comments, no replies
+```
+
+**What Lurker gives Claude (compact notation):**
+```
+#post	r/LocalLLM	u/moks4tda	422pts	93%	109cmt	2026-01-28
+Finally We have the best agentic AI at home
+
+#comments	104
+d0	180	Recent-Success-1520	If you can host Kimi 2.5 1T+ model at home...
+d1	46	HenkPoley	Apparently it's a native 4 bit weights. So "only" 640 GB needed...
+d2	34	TechnicalGeologist99	Sorry...you're going to run that model on RAM?
+d3	29	HenkPoley	24 tokens per second on 2x 512GB Max Studio M3 Ultra
+d4	8	doradus_novae	See you tomorrow when it answers your question 😆
+d5	20	Scrubbingbubblz	You are over exaggerating. 24 tokens per second...
+d6	2	Infinite100p	But what is the prompt processing speed?
+d7	4	Miserable-Dare5090	It's GPU inference, on two m3 ultras over TB5...
+d8	1	Infinite100p	How?
+d9	2	Eastern-Group-1993	Via usb-c networking, RDMA.
+d0	82	No_Conversation9561	not in my home
+d1	45	gonxot	[image] Maybe it's the same guy lol
+d0	60	rookan	yeah, my 16GB VRAM card can easily handle it /s
+d0	27	keypa_	"at home" we probably don't have the same home...
+...
+```
+
+**104 of 109 comments loaded. 10 levels deep.** The best stuff — hardware specs, cost breakdowns, the debate about whether 24 tok/s is actually useful for agentic workflows — is all buried at depth 3-9. Most tools never see it.
 
 ---
 
