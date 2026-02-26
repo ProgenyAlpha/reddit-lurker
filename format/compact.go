@@ -33,7 +33,7 @@ func CompactThread(t *reddit.Thread) string {
 		b.WriteString(truncate(p.SelfText, 500))
 		b.WriteByte('\n')
 		if p.MediaURL != "" {
-			fmt.Fprintf(&b, "#media\t%s\n", p.MediaURL)
+			fmt.Fprintf(&b, "#media\t[link](%s)\n", p.MediaURL)
 		}
 	} else {
 		url := p.MediaURL
@@ -43,7 +43,7 @@ func CompactThread(t *reddit.Thread) string {
 		b.WriteString(truncate(url, 500))
 		b.WriteByte('\n')
 		if p.MediaURL != "" && p.MediaURL != url {
-			fmt.Fprintf(&b, "#media\t%s\n", p.MediaURL)
+			fmt.Fprintf(&b, "#media\t[link](%s)\n", p.MediaURL)
 		}
 	}
 
@@ -69,7 +69,7 @@ func CompactPostList(posts []*reddit.Post, subName string, sort string, after st
 		if p == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "%d\t%dpts\t%dcmt\t%s\tu/%s\t%s\t%s\n",
+		fmt.Fprintf(&b, "%d\t%dpts\t%dcmt\t%s\tu/%s\t%s\t[thread](https://www.reddit.com%s)\n",
 			i+1, p.Score, p.NumComments, formatTime(p.Created),
 			p.Author, truncate(p.Title, 80), p.Permalink)
 	}
@@ -99,7 +99,7 @@ func CompactSearchResults(posts []*reddit.Post, query string, sub string, after 
 		if p == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "%d\t%dpts\t%dcmt\tr/%s\tu/%s\t%s\t%s\n",
+		fmt.Fprintf(&b, "%d\t%dpts\t%dcmt\tr/%s\tu/%s\t%s\t[thread](https://www.reddit.com%s)\n",
 			i+1, p.Score, p.NumComments, p.Subreddit,
 			p.Author, truncate(p.Title, 80), p.Permalink)
 	}
