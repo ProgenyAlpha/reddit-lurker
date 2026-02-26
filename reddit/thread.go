@@ -8,75 +8,8 @@ import (
 	"time"
 )
 
-// GetThread fetches a Reddit thread (post + comments) by permalink.
-// Accepts full URLs like https://www.reddit.com/r/sub/comments/id/title/ or just the path.
-func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
-	// Strip full URL down to the path portion
-	permalink = extractPermalink(permalink)
-
-	// Validate that it looks like a thread URL (must contain /comments/)
-	if !strings.Contains(permalink, "/comments/") {
-		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
-	}
-
-	// Ensure trailing slash
-	if !strings.HasSuffix(permalink, "/") {
-		permalink += "/"
-	}
-
-	// Request max comments from Reddit (default is ~200, max is 500)
-	path := permalink + ".json?limit=500"
-
-	data, err := c.Fetch(path, noCache)
-	if err != nil {
-		return nil, fmt.Errorf("fetching thread: %w", err)
-	}
-
-	// Reddit returns an array of 2 listings: [post_listing, comments_listing]
-	var listings []Listing
-	if err := json.Unmarshal(data, &listings); err != nil {
-		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
-	}
-
-	if len(listings) < 2 {
-		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
-	}
-
-	// First listing contains the post
-	if len(listings[0].Data.Children) == 0 {
-		return nil, fmt.Errorf("thread has no post — it may have been deleted or removed")
-	}
-
-	post := ParsePost(listings[0].Data.Children[0].Data)
-
-	// Second listing contains comments
-	var comments []*Comment
-	for _, thing := range listings[1].Data.Children {
-		comment := parseComment(thing.Kind, thing.Data)
-		if comment != nil {
-			comments = append(comments, comment)
-		}
-	}
-
-	thread := &Thread{
-		Post:     post,
-		Comments: comments,
-	}
-
-	// Recursively expand "more" placeholders until none remain (max 10 passes)
-	for i := 0; i < 10; i++ {
-		expanded := expandMoreComments(c, thread, noCache)
-		if expanded == 0 {
-			break
-		}
-	}
-
-	return thread, nil
-}
-
-// GetThreadShallow fetches a thread without expanding collapsed comments.
-// Returns the initial ~500 comments from Reddit's first response.
-func (c *Client) GetThreadShallow(permalink string, noCache bool) (*Thread, error) {
+// fetchThreadBase fetches and parses a thread without expansion.
+func (c *Client) fetchThreadBase(permalink string, noCache bool) (*Thread, error) {
 	permalink = extractPermalink(permalink)
 
 	if !strings.Contains(permalink, "/comments/") {
@@ -120,6 +53,29 @@ func (c *Client) GetThreadShallow(permalink string, noCache bool) (*Thread, erro
 	return &Thread{Post: post, Comments: comments}, nil
 }
 
+// GetThread fetches a Reddit thread (post + comments) by permalink.
+// Accepts full URLs like https://www.reddit.com/r/sub/comments/id/title/ or just the path.
+func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
+	thread, err := c.fetchThreadBase(permalink, noCache)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recursively expand "more" placeholders until none remain (max 10 passes)
+	for i := 0; i < 10; i++ {
+		if expandMoreComments(c, thread, noCache) == 0 {
+			break
+		}
+	}
+
+	return thread, nil
+}
+
+// GetThreadShallow fetches a thread without expanding collapsed comments.
+func (c *Client) GetThreadShallow(permalink string, noCache bool) (*Thread, error) {
+	return c.fetchThreadBase(permalink, noCache)
+}
+
 // ExpandThread recursively expands "more" placeholders (up to 10 passes).
 func (c *Client) ExpandThread(thread *Thread, noCache bool) {
 	for i := 0; i < 10; i++ {
@@ -129,31 +85,34 @@ func (c *Client) ExpandThread(thread *Thread, noCache bool) {
 	}
 }
 
+// walkComments traverses a comment tree, calling fn for each non-nil, non-"more" comment.
+func walkComments(comments []*Comment, fn func(*Comment)) {
+	for _, c := range comments {
+		if c == nil || c.IsMore {
+			continue
+		}
+		fn(c)
+		if len(c.Replies) > 0 {
+			walkComments(c.Replies, fn)
+		}
+	}
+}
+
 // TopCommentsByScore flattens the comment tree and returns the top N by score.
 func TopCommentsByScore(comments []*Comment, limit int) []*Comment {
 	var flat []*Comment
-	var walk func([]*Comment)
-	walk = func(cs []*Comment) {
-		for _, c := range cs {
-			if c == nil || c.IsMore {
-				continue
-			}
-			flat = append(flat, &Comment{
-				ID:       c.ID,
-				ParentID: c.ParentID,
-				Author:   c.Author,
-				Body:     c.Body,
-				Score:    c.Score,
-				Depth:    c.Depth,
-				Created:  c.Created,
-				Stickied: c.Stickied,
-			})
-			if len(c.Replies) > 0 {
-				walk(c.Replies)
-			}
-		}
-	}
-	walk(comments)
+	walkComments(comments, func(c *Comment) {
+		flat = append(flat, &Comment{
+			ID:       c.ID,
+			ParentID: c.ParentID,
+			Author:   c.Author,
+			Body:     c.Body,
+			Score:    c.Score,
+			Depth:    c.Depth,
+			Created:  c.Created,
+			Stickied: c.Stickied,
+		})
+	})
 
 	sort.Slice(flat, func(i, j int) bool {
 		return flat[i].Score > flat[j].Score
@@ -168,38 +127,18 @@ func TopCommentsByScore(comments []*Comment, limit int) []*Comment {
 // CountComments counts all non-"more" comments in a tree.
 func CountComments(comments []*Comment) int {
 	count := 0
-	var walk func([]*Comment)
-	walk = func(cs []*Comment) {
-		for _, c := range cs {
-			if c == nil || c.IsMore {
-				continue
-			}
-			count++
-			if len(c.Replies) > 0 {
-				walk(c.Replies)
-			}
-		}
-	}
-	walk(comments)
+	walkComments(comments, func(_ *Comment) {
+		count++
+	})
 	return count
 }
 
 // EstimateTokens estimates token count for a comment tree (~4 chars per token).
 func EstimateTokens(comments []*Comment) int {
 	chars := 0
-	var walk func([]*Comment)
-	walk = func(cs []*Comment) {
-		for _, c := range cs {
-			if c == nil || c.IsMore {
-				continue
-			}
-			chars += len(c.Body) + len(c.Author) + 20 // body + author + formatting overhead
-			if len(c.Replies) > 0 {
-				walk(c.Replies)
-			}
-		}
-	}
-	walk(comments)
+	walkComments(comments, func(c *Comment) {
+		chars += len(c.Body) + len(c.Author) + 20
+	})
 	return chars / 4
 }
 
