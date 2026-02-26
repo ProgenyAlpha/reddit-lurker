@@ -6,7 +6,6 @@ BINARY="lurk"
 INSTALL_DIR="$HOME/.local/bin"
 SKILL_DIR="$HOME/.claude/skills/reddit"
 CLAUDE_CONFIG="$HOME/.claude.json"
-VERSION="1.0.0"
 BINARY_INSTALLED=false
 
 # Colors (if terminal supports them)
@@ -21,6 +20,21 @@ info()  { echo -e "${CYAN}→${NC} $*"; }
 ok()    { echo -e "${GREEN}✓${NC} $*"; }
 warn()  { echo -e "${YELLOW}!${NC} $*"; }
 fail()  { echo -e "${RED}✗${NC} $*"; exit 1; }
+
+# ─── Detect version ───────────────────────────────────────────
+
+if [ -f "./main.go" ] && [ -f "./go.mod" ]; then
+    # In cloned repo — use git tag if available
+    VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "dev")
+else
+    # Fetch latest release tag from GitHub
+    if command -v curl &>/dev/null; then
+        VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/' || echo "")
+    elif command -v wget &>/dev/null; then
+        VERSION=$(wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/' || echo "")
+    fi
+    [ -z "$VERSION" ] && fail "Could not determine latest version. Check https://github.com/${REPO}/releases"
+fi
 
 echo -e "${BOLD}reddit-lurker${NC} v${VERSION}"
 echo "Reddit reader for LLM code editors"
@@ -46,7 +60,7 @@ if [ -f "./main.go" ] && [ -f "./go.mod" ]; then
     # Running from cloned repo — build from source
     info "Source detected, building from source..."
     command -v go &>/dev/null || fail "Go is required. Install from https://go.dev/dl/"
-    go build -ldflags "-s -w" -o "$TMPDIR/$BINARY" .
+    go build -ldflags "-s -w -X main.version=${VERSION}" -o "$TMPDIR/$BINARY" .
     ok "Built $BINARY ($(du -h "$TMPDIR/$BINARY" | cut -f1))"
 else
     # Running via curl | bash — download prebuilt binary
