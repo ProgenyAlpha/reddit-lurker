@@ -272,7 +272,7 @@ Result #1 is the most popular Reddit MCP on the Anthropic Directory. In its comm
 
 The developer's response: *"You can instruct the LLM to fetch all comments. It'll then go up to 100 comments."*
 
-The thread example above has 104 comments — already past that tool's ceiling — and Lurker fetched every one of them with full depth. No cap, no truncation, no missing replies.
+Lurker pulled 104 comments from that thread on the first call — no "fetch more" instruction needed, no second request. That's already past their tool's ceiling, with full depth to boot.
 
 ---
 
