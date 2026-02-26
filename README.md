@@ -1,10 +1,16 @@
 ```
-  ██╗     ██╗   ██╗██████╗ ██╗  ██╗
-  ██║     ██║   ██║██╔══██╗██║ ██╔╝
-  ██║     ██║   ██║██████╔╝█████╔╝
-  ██║     ██║   ██║██╔══██╗██╔═██╗
-  ███████╗╚██████╔╝██║  ██║██║  ██╗
-  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
+  ██████╗ ███████╗██████╗ ██████╗ ██╗████████╗
+  ██╔══██╗██╔════╝██╔══██╗██╔══██╗██║╚══██╔══╝
+  ██████╔╝█████╗  ██║  ██║██║  ██║██║   ██║
+  ██╔══██╗██╔══╝  ██║  ██║██║  ██║██║   ██║
+  ██║  ██║███████╗██████╔╝██████╔╝██║   ██║
+  ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═════╝ ╚═╝   ╚═╝
+  ██╗     ██╗   ██╗██████╗ ██╗  ██╗███████╗██████╗
+  ██║     ██║   ██║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗
+  ██║     ██║   ██║██████╔╝█████╔╝ █████╗  ██████╔╝
+  ██║     ██║   ██║██╔══██╗██╔═██╗ ██╔══╝  ██╔══██╗
+  ███████╗╚██████╔╝██║  ██║██║  ██╗███████╗██║  ██║
+  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 
 <p align="center">
@@ -16,9 +22,9 @@
 
 > Every comment. Every reply. 77% fewer tokens.
 
-An 800-comment Reddit thread costs ~120K tokens as raw JSON. Lurk delivers the same thread — full depth, every expanded reply — in ~31K tokens. That's not a rounding error. That's the difference between blowing your context window and having room to actually think about what you read.
+An 800-comment Reddit thread costs ~120K tokens as raw JSON. Lurk delivers the same thread — full depth, every expanded reply — in ~31K tokens.
 
-Most Reddit MCP servers fetch the top-level comments and call it a day. The best parts of Reddit are buried 4-5 replies deep — the correction, the real answer, the "actually you're wrong and here's why" that saves you hours. Lurk expands every collapsed branch, resolves every `+N more replies` placeholder, and reconstructs the full comment tree. Then it compresses everything into a compact notation that's purpose-built for LLMs.
+Most Reddit tools fetch top-level comments and stop. The useful stuff is buried 4-5 replies deep. Lurk expands every collapsed branch, resolves every `+N more replies` placeholder, and reconstructs the full comment tree. Then compresses it into compact tab-delimited notation before it reaches your model.
 
 ```text
 Post: "Finally We have the best agentic AI at home"
@@ -41,7 +47,7 @@ Post: "Finally We have the best agentic AI at home"
 
 ## How Token Savings Work
 
-Lurk doesn't just fetch more data — it sends less of it. The Go binary does all the heavy lifting before tokens ever hit your model:
+The Go binary preprocesses everything before tokens reach your model:
 
 1. **Fetch** — Hits Reddit's JSON endpoints, recursively expands every collapsed `more` placeholder
 2. **Extract** — Strips the 50+ unused fields per comment (gildings, awards, flair, metadata) down to 5-6 that matter
@@ -55,7 +61,7 @@ The result:
 | Markdown | ~5,200 |
 | **Lurk compact** | **~3,050** |
 
-**77% fewer tokens than JSON. 42% fewer than Markdown.** Same data, same structure, same depth. Claude never touches raw Reddit data — it gets exactly what it needs, already compressed.
+**77% fewer tokens than JSON. 42% fewer than Markdown.** Same data, same structure, same depth.
 
 ### Smart Comment Limiting
 
@@ -102,7 +108,7 @@ curl -fsSL https://raw.githubusercontent.com/ProgenyAlpha/reddit-lurker/master/i
 irm https://raw.githubusercontent.com/ProgenyAlpha/reddit-lurker/master/install.ps1 | iex
 ```
 
-No Node. No Go. No nothing. Downloads the binary for your platform and walks you through editor setup. Supports Claude Code, Cursor, Windsurf, VS Code (Copilot), Cline, and Zed.
+Downloads the binary for your platform and walks you through editor setup. Supports Claude Code, Cursor, Windsurf, VS Code (Copilot), Cline, and Zed.
 
 ### Homebrew
 
@@ -116,7 +122,7 @@ brew install ProgenyAlpha/tap/lurk
 npx reddit-lurker
 ```
 
-If you already have Node/npm. Same binary, different delivery truck. Also available on [Smithery](https://smithery.ai).
+If you already have Node/npm. Also available on [Smithery](https://smithery.ai).
 
 ### Go Install
 
@@ -265,7 +271,7 @@ d0	27	keypa_	"at home" we probably don't have the same home...
 ...
 ```
 
-**104 of 109 comments. 10 levels deep. ~3,050 tokens.** The 5 missing are deleted posts Reddit still counts but no longer serves. The hardware specs, cost breakdowns, and the debate about whether 24 tok/s is actually useful for agentic workflows — all buried at depth 3-9 — most tools never see it.
+**104 of 109 comments. 10 levels deep. ~3,050 tokens.** The 5 missing are deleted posts Reddit still counts but no longer serves.
 
 ## Benchmarks
 
@@ -324,7 +330,7 @@ Lurk fails cleanly with a reason, never with raw HTTP dumps or stack traces:
 
 ## Reference
 
-Everything below is for people who want the details.
+Details for the curious.
 
 ### CLI Commands
 
