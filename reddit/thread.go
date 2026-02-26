@@ -11,7 +11,7 @@ import (
 
 // fetchThreadBase fetches and parses a thread without expansion.
 func (c *Client) fetchThreadBase(permalink string, noCache bool) (*Thread, error) {
-	permalink = extractPermalink(permalink)
+	permalink = c.extractPermalink(permalink)
 
 	if !strings.Contains(permalink, "/comments/") {
 		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
@@ -281,7 +281,7 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 }
 
 // extractPermalink strips a full Reddit URL down to the path.
-func extractPermalink(raw string) string {
+func (c *Client) extractPermalink(raw string) string {
 	raw = strings.TrimSpace(raw)
 
 	// Resolve redd.it short links (but not v.redd.it, i.redd.it, preview.redd.it CDN URLs)
@@ -289,7 +289,7 @@ func extractPermalink(raw string) string {
 		!strings.Contains(raw, "v.redd.it/") &&
 		!strings.Contains(raw, "i.redd.it/") &&
 		!strings.Contains(raw, "preview.redd.it/") {
-		if resolved := resolveRedditShortLink(raw); resolved != "" {
+		if resolved := c.resolveRedditShortLink(raw); resolved != "" {
 			raw = resolved
 		}
 	}
@@ -321,14 +321,16 @@ func extractPermalink(raw string) string {
 }
 
 // resolveRedditShortLink follows a redd.it redirect to get the full URL.
-func resolveRedditShortLink(shortURL string) string {
-	client := &http.Client{
+// Uses the shared client's transport but with redirect-following disabled.
+func (c *Client) resolveRedditShortLink(shortURL string) string {
+	redirectClient := &http.Client{
+		Transport: c.http.Transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 		Timeout: 5 * time.Second,
 	}
-	resp, err := client.Get(shortURL)
+	resp, err := redirectClient.Get(shortURL)
 	if err != nil {
 		return ""
 	}

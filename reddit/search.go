@@ -60,6 +60,9 @@ func (c *Client) Search(query string, sub string, sort SortOrder, limit int, tim
 }
 
 // searchMulti searches multiple subreddits in parallel and merges results by score.
+// Partial failures are tolerated: if some subreddits fail but others succeed, the
+// successful results are returned. Only returns an error if ALL subreddits fail.
+// Pagination is not supported for multi-sub queries — the after token is always empty.
 func (c *Client) searchMulti(query string, subs string, sortOrder SortOrder, limit int, timeFilter TimeFilter, noCache bool) ([]*Post, string, error) {
 	parts := strings.Split(subs, ",")
 	type result struct {
