@@ -29,18 +29,20 @@ Most Reddit tools fetch top-level comments and stop. The useful stuff is buried 
 ```text
 Post: "Finally We have the best agentic AI at home"
  +-- Comment (180 pts)
- |   +-- Reply (46 pts)
+ |   +-- Reply (46 pts)              <-- most tools stop here
  |   |   +-- Reply (34 pts)
  |   |       +-- Reply (29 pts)
  |   |           +-- Reply (8 pts)
- |   |               +-- Reply (20 pts)           <-- most tools stop here
+ |   |               +-- Reply (20 pts)
  |   |                   +-- Reply (2 pts)
  |   |                       +-- Reply (4 pts)
  |   |                           +-- Reply (1 pt)
- |   |                               +-- Reply (2 pts)  <-- lurk gets this
+ |   |                               +-- Reply (2 pts)
  +-- Comment (82 pts)
-     +-- Reply (45 pts)
-         +-- Reply ...
+ |   +-- Reply (45 pts)
+ |       +-- Reply ...
+ +-- Comment (60 pts)                <-- lurk gets all of it
+     +-- +47 more replies (expanded)
 ```
 
 **104 of 109 comments. 10 levels deep. Fully automatic.**
