@@ -317,7 +317,7 @@ Deleted comments show as `[deleted]` in the output — Reddit still counts them 
 
 - **Public content only.** Private, restricted, and quarantined subreddits require OAuth, which Lurker doesn't support.
 - **Unauthenticated rate limit.** 10 requests/minute with automatic retry and exponential backoff. Enough for normal use, not for bulk scraping (and that's intentional).
-- **One level of expansion.** Lurker expands collapsed "load more" branches once. Extremely deep mega-threads (1000+ comments) may not fetch every last reply, but will get the vast majority.
+- **~200 comment ceiling on mega threads.** Reddit caps what it returns to unauthenticated requests. Threads under ~300 comments typically return in full. Above that, expect ~200 comments — still 2x what most tools manage, but not the complete set. This is a Reddit limitation, not ours. Full access would require OAuth, which defeats the zero-auth design.
 - **No NSFW age gates.** Some NSFW subreddits gate content behind login even for public posts.
 
 ---

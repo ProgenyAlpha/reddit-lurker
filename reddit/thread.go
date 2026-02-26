@@ -61,18 +61,23 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 		Comments: comments,
 	}
 
-	// Auto-expand one level of "more" placeholders
-	expandMoreComments(c, thread, noCache)
+	// Recursively expand "more" placeholders until none remain (max 10 passes)
+	for i := 0; i < 10; i++ {
+		expanded := expandMoreComments(c, thread, noCache)
+		if expanded == 0 {
+			break
+		}
+	}
 
 	return thread, nil
 }
 
 // expandMoreComments walks the comment tree, collects all "more" placeholders,
 // fetches their children in batches of 100, and inserts them back into the tree.
-// Only does one level of expansion (does not recursively chase morechildren of morechildren).
-func expandMoreComments(client *Client, thread *Thread, noCache bool) {
+// Returns the number of comments expanded (0 means no more placeholders found).
+func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 	if thread.Post == nil {
-		return
+		return 0
 	}
 
 	// Collect all "more" placeholders and their parent references
@@ -104,7 +109,7 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) {
 	walk(&thread.Comments)
 
 	if len(mores) == 0 {
-		return
+		return 0
 	}
 
 	// Collect all IDs and batch them (max 100 per request)
@@ -129,7 +134,7 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) {
 	}
 
 	if len(fetched) == 0 {
-		return
+		return 0
 	}
 
 	// Build a map of fetched comments by ID for quick lookup
@@ -160,6 +165,8 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) {
 			*m.parent = newSlice
 		}
 	}
+
+	return len(fetched)
 }
 
 // extractPermalink strips a full Reddit URL down to the path.
