@@ -7,8 +7,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/progenyalpha/lurk/format"
-	"github.com/progenyalpha/lurk/reddit"
+	"github.com/ProgenyAlpha/reddit-lurker/format"
+	"github.com/ProgenyAlpha/reddit-lurker/reddit"
 )
 
 // Serve starts the MCP stdio server.
@@ -93,21 +93,21 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 			if sort == "" {
 				sort = "hot"
 			}
-			posts, _, err := client.GetSubreddit(target, reddit.SortOrder(sort), limit, reddit.TimeFilter(timeFilter), "", false)
+			posts, after, err := client.GetSubreddit(target, reddit.SortOrder(sort), limit, reddit.TimeFilter(timeFilter), "", false)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return mcp.NewToolResultText(format.CompactPostList(posts, target, sort)), nil
+			return mcp.NewToolResultText(format.CompactPostList(posts, target, sort, after)), nil
 
 		case "search":
 			if sort == "" {
 				sort = "relevance"
 			}
-			posts, _, err := client.Search(target, sub, reddit.SortOrder(sort), limit, reddit.TimeFilter(timeFilter), "", false)
+			posts, after, err := client.Search(target, sub, reddit.SortOrder(sort), limit, reddit.TimeFilter(timeFilter), "", false)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return mcp.NewToolResultText(format.CompactSearchResults(posts, target, sub)), nil
+			return mcp.NewToolResultText(format.CompactSearchResults(posts, target, sub, after)), nil
 
 		case "user":
 			info, posts, comments, err := client.GetUser(target, limit, false)

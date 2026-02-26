@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/progenyalpha/lurk/format"
-	"github.com/progenyalpha/lurk/reddit"
+	"github.com/ProgenyAlpha/reddit-lurker/format"
+	"github.com/ProgenyAlpha/reddit-lurker/reddit"
 )
 
 // extractPositionalAndFlags separates positional args from flags so flags
@@ -78,6 +78,7 @@ func Subreddit(args []string) {
 	sort := fs.String("sort", "hot", "Sort order (hot, new, top, rising, controversial)")
 	limit := fs.Int("limit", 25, "Number of posts")
 	timeFilter := fs.String("time", "", "Time filter (hour, day, week, month, year, all)")
+	after := fs.String("after", "", "Pagination token for next page")
 	jsonOut := fs.Bool("json", false, "Output raw JSON")
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
@@ -107,7 +108,7 @@ func Subreddit(args []string) {
 		return
 	}
 
-	posts, _, err := client.GetSubreddit(name, reddit.SortOrder(*sort), *limit, reddit.TimeFilter(*timeFilter), "", *noCache)
+	posts, nextAfter, err := client.GetSubreddit(name, reddit.SortOrder(*sort), *limit, reddit.TimeFilter(*timeFilter), *after, *noCache)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
@@ -117,10 +118,10 @@ func Subreddit(args []string) {
 	case *jsonOut:
 		fmt.Println(format.ToJSON(posts))
 	case *compact:
-		fmt.Print(format.CompactPostList(posts, name, *sort))
+		fmt.Print(format.CompactPostList(posts, name, *sort, nextAfter))
 	default:
 		header := fmt.Sprintf("r/%s — %s", name, *sort)
-		fmt.Print(format.FormatPostList(posts, header))
+		fmt.Print(format.FormatPostList(posts, header, nextAfter))
 	}
 }
 
@@ -133,6 +134,7 @@ func Search(args []string) {
 	sort := fs.String("sort", "relevance", "Sort order (relevance, hot, top, new, comments)")
 	limit := fs.Int("limit", 25, "Number of results")
 	timeFilter := fs.String("time", "", "Time filter (hour, day, week, month, year, all)")
+	after := fs.String("after", "", "Pagination token for next page")
 	jsonOut := fs.Bool("json", false, "Output raw JSON")
 	compact := fs.Bool("compact", false, "Output compact notation")
 	noCache := fs.Bool("no-cache", false, "Skip cache")
@@ -144,7 +146,7 @@ func Search(args []string) {
 	}
 	client := reddit.NewClient()
 
-	posts, _, err := client.Search(query, *sub, reddit.SortOrder(*sort), *limit, reddit.TimeFilter(*timeFilter), "", *noCache)
+	posts, nextAfter, err := client.Search(query, *sub, reddit.SortOrder(*sort), *limit, reddit.TimeFilter(*timeFilter), *after, *noCache)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
@@ -154,9 +156,9 @@ func Search(args []string) {
 	case *jsonOut:
 		fmt.Println(format.ToJSON(posts))
 	case *compact:
-		fmt.Print(format.CompactSearchResults(posts, query, *sub))
+		fmt.Print(format.CompactSearchResults(posts, query, *sub, nextAfter))
 	default:
-		fmt.Print(format.FormatSearchResults(posts, query))
+		fmt.Print(format.FormatSearchResults(posts, query, nextAfter))
 	}
 }
 

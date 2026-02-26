@@ -51,10 +51,110 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 		}
 	}
 
-	return &Thread{
+	thread := &Thread{
 		Post:     post,
 		Comments: comments,
-	}, nil
+	}
+
+	// Auto-expand one level of "more" placeholders
+	expandMoreComments(c, thread, noCache)
+
+	return thread, nil
+}
+
+// expandMoreComments walks the comment tree, collects all "more" placeholders,
+// fetches their children in batches of 100, and inserts them back into the tree.
+// Only does one level of expansion (does not recursively chase morechildren of morechildren).
+func expandMoreComments(client *Client, thread *Thread, noCache bool) {
+	if thread.Post == nil {
+		return
+	}
+
+	// Collect all "more" placeholders and their parent references
+	type moreRef struct {
+		parent   *[]*Comment // pointer to the slice containing the "more" placeholder
+		index    int         // index within that slice
+		moreIDs  []string
+	}
+
+	var mores []moreRef
+
+	var walk func(comments *[]*Comment)
+	walk = func(comments *[]*Comment) {
+		for i, c := range *comments {
+			if c == nil {
+				continue
+			}
+			if c.IsMore && len(c.MoreIDs) > 0 {
+				mores = append(mores, moreRef{
+					parent:  comments,
+					index:   i,
+					moreIDs: c.MoreIDs,
+				})
+			} else if len(c.Replies) > 0 {
+				walk(&c.Replies)
+			}
+		}
+	}
+	walk(&thread.Comments)
+
+	if len(mores) == 0 {
+		return
+	}
+
+	// Collect all IDs and batch them (max 100 per request)
+	var allIDs []string
+	for _, m := range mores {
+		allIDs = append(allIDs, m.moreIDs...)
+	}
+
+	const batchSize = 100
+	var fetched []*Comment
+	for i := 0; i < len(allIDs); i += batchSize {
+		end := i + batchSize
+		if end > len(allIDs) {
+			end = len(allIDs)
+		}
+		batch, err := client.FetchMoreChildren(thread.Post.ID, allIDs[i:end], noCache)
+		if err != nil {
+			// Non-fatal: just skip expansion on error
+			continue
+		}
+		fetched = append(fetched, batch...)
+	}
+
+	if len(fetched) == 0 {
+		return
+	}
+
+	// Build a map of fetched comments by ID for quick lookup
+	fetchedByID := make(map[string]*Comment, len(fetched))
+	for _, c := range fetched {
+		if c != nil {
+			fetchedByID[c.ID] = c
+		}
+	}
+
+	// Replace "more" placeholders with fetched comments
+	// Process in reverse order to maintain stable indices
+	for i := len(mores) - 1; i >= 0; i-- {
+		m := mores[i]
+		var replacements []*Comment
+		for _, id := range m.moreIDs {
+			if c, ok := fetchedByID[id]; ok {
+				replacements = append(replacements, c)
+			}
+		}
+		if len(replacements) > 0 {
+			// Replace the "more" placeholder with the fetched comments
+			parent := *m.parent
+			newSlice := make([]*Comment, 0, len(parent)-1+len(replacements))
+			newSlice = append(newSlice, parent[:m.index]...)
+			newSlice = append(newSlice, replacements...)
+			newSlice = append(newSlice, parent[m.index+1:]...)
+			*m.parent = newSlice
+		}
+	}
 }
 
 // extractPermalink strips a full Reddit URL down to the path.

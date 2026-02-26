@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/progenyalpha/lurk/reddit"
+	"github.com/ProgenyAlpha/reddit-lurker/reddit"
 )
 
 // CompactThread renders a thread in tab-delimited compact notation.
@@ -23,17 +23,29 @@ func CompactThread(t *reddit.Thread) string {
 	b.WriteString(p.Title)
 	b.WriteByte('\n')
 
+	// Cross-post info
+	if p.CrosspostParent != "" {
+		fmt.Fprintf(&b, "xpost\t%s\n", p.CrosspostParent)
+	}
+
 	// Body
 	if p.IsSelf {
 		b.WriteString(truncate(p.SelfText, 500))
+		b.WriteByte('\n')
+		if p.MediaURL != "" {
+			fmt.Fprintf(&b, "#media\t%s\n", p.MediaURL)
+		}
 	} else {
 		url := p.MediaURL
 		if url == "" {
 			url = p.URL
 		}
 		b.WriteString(truncate(url, 500))
+		b.WriteByte('\n')
+		if p.MediaURL != "" && p.MediaURL != url {
+			fmt.Fprintf(&b, "#media\t%s\n", p.MediaURL)
+		}
 	}
-	b.WriteByte('\n')
 
 	// Comments
 	if len(t.Comments) > 0 {
@@ -45,7 +57,7 @@ func CompactThread(t *reddit.Thread) string {
 }
 
 // CompactPostList renders a subreddit listing in compact notation.
-func CompactPostList(posts []*reddit.Post, subName string, sort string) string {
+func CompactPostList(posts []*reddit.Post, subName string, sort string, after string) string {
 	if len(posts) == 0 {
 		return ""
 	}
@@ -62,11 +74,15 @@ func CompactPostList(posts []*reddit.Post, subName string, sort string) string {
 			p.Author, truncate(p.Title, 80), p.Permalink)
 	}
 
+	if after != "" {
+		fmt.Fprintf(&b, "#next\t%s\n", after)
+	}
+
 	return b.String()
 }
 
 // CompactSearchResults renders search results in compact notation.
-func CompactSearchResults(posts []*reddit.Post, query string, sub string) string {
+func CompactSearchResults(posts []*reddit.Post, query string, sub string, after string) string {
 	if len(posts) == 0 {
 		return ""
 	}
@@ -86,6 +102,10 @@ func CompactSearchResults(posts []*reddit.Post, query string, sub string) string
 		fmt.Fprintf(&b, "%d\t%dpts\t%dcmt\tr/%s\tu/%s\t%s\t%s\n",
 			i+1, p.Score, p.NumComments, p.Subreddit,
 			p.Author, truncate(p.Title, 80), p.Permalink)
+	}
+
+	if after != "" {
+		fmt.Fprintf(&b, "#next\t%s\n", after)
 	}
 
 	return b.String()

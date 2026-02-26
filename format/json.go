@@ -11,7 +11,9 @@ func ToJSON(v any) string {
 	}
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return `{"error": "` + err.Error() + `"}`
+		// Use json.Marshal on the error string so quotes/backslashes are escaped properly.
+		errMsg, _ := json.Marshal(err.Error())
+		return `{"error": ` + string(errMsg) + `}`
 	}
 	return string(b)
 }

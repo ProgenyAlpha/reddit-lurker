@@ -3,6 +3,7 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -19,7 +20,7 @@ func (c *Client) GetSubreddit(name string, sort SortOrder, limit int, timeFilter
 		path += "&t=" + string(timeFilter)
 	}
 	if after != "" {
-		path += "&after=" + after
+		path += "&after=" + url.QueryEscape(after)
 	}
 
 	data, err := c.Fetch(path, noCache)

@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
 	baseURL        = "https://www.reddit.com"
-	oauthBaseURL   = "https://oauth.reddit.com"
-	userAgent      = "lurk/1.0 (github.com/progenyalpha/lurk)"
+	userAgent      = "lurk/1.0 (github.com/ProgenyAlpha/reddit-lurker)"
 	maxRetries     = 3
 	retryDelay     = 2 * time.Second
-	cacheTTL       = 5 * time.Minute
+	cacheTTL       = 15 * time.Minute
 	unauthRateLimit = 10 // requests per minute
 )
 
@@ -86,6 +87,10 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 		}
 	}
 
+	if path == "" {
+		return nil, fmt.Errorf("fetch: path must not be empty")
+	}
+
 	c.limiter.wait()
 
 	url := baseURL + path
@@ -135,6 +140,106 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// FetchPost makes a POST request to the Reddit JSON API with retry, rate limiting, and caching.
+func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]byte, error) {
+	cacheKey := "POST:" + path + "?" + formData.Encode()
+	if !noCache {
+		if data := c.getCache(cacheKey); data != nil {
+			return data, nil
+		}
+	}
+
+	if path == "" {
+		return nil, fmt.Errorf("fetch: path must not be empty")
+	}
+
+	c.limiter.wait()
+
+	reqURL := baseURL + path
+	if path[0] != '/' {
+		reqURL = baseURL + "/" + path
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(retryDelay * time.Duration(attempt))
+		}
+
+		req, err := http.NewRequest("POST", reqURL, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("request failed: %w", err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("reading body: %w", err)
+			continue
+		}
+
+		switch {
+		case resp.StatusCode == 200:
+			c.setCache(cacheKey, body)
+			return body, nil
+		case resp.StatusCode == 403:
+			return nil, fmt.Errorf("access denied — subreddit may be private (requires auth) or quarantined")
+		case resp.StatusCode == 404:
+			return nil, fmt.Errorf("not found — check the URL or subreddit name")
+		case resp.StatusCode == 429 || resp.StatusCode >= 500:
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		default:
+			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
+		}
+	}
+
+	return nil, fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// FetchMoreChildren fetches collapsed comment threads using Reddit's /api/morechildren endpoint.
+func (c *Client) FetchMoreChildren(linkID string, childrenIDs []string, noCache bool) ([]*Comment, error) {
+	formData := url.Values{}
+	formData.Set("api_type", "json")
+	formData.Set("link_id", "t3_"+linkID)
+	formData.Set("children", strings.Join(childrenIDs, ","))
+	formData.Set("sort", "confidence")
+
+	data, err := c.FetchPost("/api/morechildren", formData, noCache)
+	if err != nil {
+		return nil, fmt.Errorf("fetching more children: %w", err)
+	}
+
+	var resp struct {
+		JSON struct {
+			Data struct {
+				Things []Thing `json:"things"`
+			} `json:"data"`
+		} `json:"json"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parsing morechildren response: %w", err)
+	}
+
+	var comments []*Comment
+	for _, thing := range resp.JSON.Data.Things {
+		comment := parseComment(thing.Kind, thing.Data)
+		if comment != nil {
+			comments = append(comments, comment)
+		}
+	}
+
+	return comments, nil
 }
 
 func (c *Client) getCache(key string) []byte {
@@ -204,7 +309,37 @@ func ParsePost(data map[string]any) *Post {
 	if !p.IsSelf {
 		p.MediaURL = p.URL
 	}
-	if preview, ok := data["preview"].(map[string]any); ok {
+
+	// Reddit galleries: extract image URLs from media_metadata
+	if _, hasGallery := data["gallery_data"]; hasGallery {
+		if metadata, ok := data["media_metadata"].(map[string]any); ok {
+			var urls []string
+			for _, item := range metadata {
+				if m, ok := item.(map[string]any); ok {
+					if s, ok := m["s"].(map[string]any); ok {
+						if u := getString(s, "u"); u != "" {
+							urls = append(urls, u)
+						} else if gif := getString(s, "gif"); gif != "" {
+							urls = append(urls, gif)
+						} else if mp4 := getString(s, "mp4"); mp4 != "" {
+							urls = append(urls, mp4)
+						}
+					}
+				}
+			}
+			if len(urls) > 0 {
+				p.MediaURL = strings.Join(urls, ",")
+			}
+		}
+	} else if media, ok := data["media"].(map[string]any); ok {
+		// Reddit-hosted video
+		if rv, ok := media["reddit_video"].(map[string]any); ok {
+			if fallback := getString(rv, "fallback_url"); fallback != "" {
+				p.MediaURL = fallback
+			}
+		}
+	} else if preview, ok := data["preview"].(map[string]any); ok {
+		// Preview image fallback
 		if images, ok := preview["images"].([]any); ok && len(images) > 0 {
 			if img, ok := images[0].(map[string]any); ok {
 				if source, ok := img["source"].(map[string]any); ok {

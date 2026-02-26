@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/progenyalpha/lurk/reddit"
+	"github.com/ProgenyAlpha/reddit-lurker/reddit"
 )
 
 // FormatThread renders a full post with its comment tree in readable markdown.
@@ -23,11 +23,19 @@ func FormatThread(t *reddit.Thread) string {
 		p.Subreddit, p.Author, p.Score, p.UpvoteRatio*100,
 		p.NumComments, formatTime(p.Created))
 
+	// Cross-post info
+	if p.CrosspostParent != "" {
+		fmt.Fprintf(&b, "*Cross-posted from: %s*\n\n", p.CrosspostParent)
+	}
+
 	// Body
 	if p.IsSelf {
 		if p.SelfText != "" {
 			b.WriteString(p.SelfText)
 			b.WriteString("\n\n")
+		}
+		if p.MediaURL != "" {
+			fmt.Fprintf(&b, "[Media](%s)\n\n", p.MediaURL)
 		}
 	} else {
 		url := p.MediaURL
@@ -35,7 +43,15 @@ func FormatThread(t *reddit.Thread) string {
 			url = p.URL
 		}
 		if url != "" {
-			fmt.Fprintf(&b, "%s\n\n", url)
+			// Gallery posts may have multiple comma-separated URLs
+			if strings.Contains(url, ",") {
+				for i, u := range strings.Split(url, ",") {
+					fmt.Fprintf(&b, "[Image %d](%s)\n", i+1, strings.TrimSpace(u))
+				}
+				b.WriteString("\n")
+			} else {
+				fmt.Fprintf(&b, "[Media](%s)\n\n", url)
+			}
 		}
 	}
 
@@ -49,7 +65,7 @@ func FormatThread(t *reddit.Thread) string {
 }
 
 // FormatPostList renders a numbered list of posts for subreddit listings.
-func FormatPostList(posts []*reddit.Post, header string) string {
+func FormatPostList(posts []*reddit.Post, header string, after string) string {
 	if len(posts) == 0 {
 		return "No posts found."
 	}
@@ -66,11 +82,15 @@ func FormatPostList(posts []*reddit.Post, header string) string {
 		fmt.Fprintf(&b, "   %s\n\n", p.Permalink)
 	}
 
+	if after != "" {
+		fmt.Fprintf(&b, "\nNext page: --after %s\n", after)
+	}
+
 	return b.String()
 }
 
 // FormatSearchResults renders search results with subreddit names.
-func FormatSearchResults(posts []*reddit.Post, query string) string {
+func FormatSearchResults(posts []*reddit.Post, query string, after string) string {
 	if len(posts) == 0 {
 		return "No results found."
 	}
@@ -85,6 +105,10 @@ func FormatSearchResults(posts []*reddit.Post, query string) string {
 		fmt.Fprintf(&b, "%d. **%s** — r/%s | %d pts | %d comments | u/%s | %s\n",
 			i+1, p.Title, p.Subreddit, p.Score, p.NumComments, p.Author, formatTime(p.Created))
 		fmt.Fprintf(&b, "   %s\n\n", p.Permalink)
+	}
+
+	if after != "" {
+		fmt.Fprintf(&b, "\nNext page: --after %s\n", after)
 	}
 
 	return b.String()
