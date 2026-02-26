@@ -19,7 +19,7 @@ const (
 	userAgent      = "lurk/1.0 (github.com/ProgenyAlpha/reddit-lurker)"
 	maxRetries     = 3
 	retryDelay     = 2 * time.Second
-	cacheTTL       = 15 * time.Minute
+	maxCacheSize   = 50 * 1024 * 1024 // 50MB
 	// Reddit's unauthenticated limit is 10 req/min averaged over 10 minutes,
 	// which allows bursting. We use a 10-minute window with 100 tokens.
 	rateLimitWindow = 10 * time.Minute
@@ -31,6 +31,7 @@ type Client struct {
 	http      *http.Client
 	cache     map[string]*cacheEntry
 	cacheMu   sync.RWMutex
+	cacheSize int64
 	limiter   *rateLimiter
 	oauth     *oauthToken // nil when unauthenticated
 }
@@ -38,6 +39,29 @@ type Client struct {
 type cacheEntry struct {
 	data      []byte
 	expiresAt time.Time
+	size      int
+	lastUsed  time.Time
+	key       string
+}
+
+// cacheTTLFor returns an adaptive TTL based on URL pattern.
+func cacheTTLFor(key string) time.Duration {
+	switch {
+	case strings.Contains(key, "/new.json"), strings.Contains(key, "/new/"):
+		return 2 * time.Minute
+	case strings.Contains(key, "/hot.json"), strings.Contains(key, "/hot/"):
+		return 5 * time.Minute
+	case strings.Contains(key, "/top.json"), strings.Contains(key, "/top/"):
+		return 30 * time.Minute
+	case strings.Contains(key, "/comments/"), strings.Contains(key, "/api/morechildren"):
+		return 10 * time.Minute
+	case strings.Contains(key, "/user/"), strings.Contains(key, "/about.json"):
+		return 15 * time.Minute
+	case strings.Contains(key, "/search.json"):
+		return 10 * time.Minute
+	default:
+		return 15 * time.Minute
+	}
 }
 
 type rateLimiter struct {
@@ -386,21 +410,59 @@ func parseMoreChildrenComment(d map[string]any) *Comment {
 }
 
 func (c *Client) getCache(key string) []byte {
-	c.cacheMu.RLock()
-	defer c.cacheMu.RUnlock()
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
 	entry, ok := c.cache[key]
-	if !ok || time.Now().After(entry.expiresAt) {
+	if !ok {
 		return nil
 	}
+	if time.Now().After(entry.expiresAt) {
+		c.cacheSize -= int64(entry.size)
+		delete(c.cache, key)
+		return nil
+	}
+	entry.lastUsed = time.Now()
 	return entry.data
 }
 
 func (c *Client) setCache(key string, data []byte) {
 	c.cacheMu.Lock()
 	defer c.cacheMu.Unlock()
+
+	entrySize := len(data) + len(key) + 64
+	if int64(entrySize) > maxCacheSize {
+		return // don't cache entries larger than the limit
+	}
+
+	if old, ok := c.cache[key]; ok {
+		c.cacheSize -= int64(old.size)
+	}
+
+	for c.cacheSize+int64(entrySize) > maxCacheSize && len(c.cache) > 0 {
+		c.evictLRU()
+	}
+
+	now := time.Now()
 	c.cache[key] = &cacheEntry{
 		data:      data,
-		expiresAt: time.Now().Add(cacheTTL),
+		expiresAt: now.Add(cacheTTLFor(key)),
+		size:      entrySize,
+		lastUsed:  now,
+		key:       key,
+	}
+	c.cacheSize += int64(entrySize)
+}
+
+func (c *Client) evictLRU() {
+	var oldest *cacheEntry
+	for _, entry := range c.cache {
+		if oldest == nil || entry.lastUsed.Before(oldest.lastUsed) {
+			oldest = entry
+		}
+	}
+	if oldest != nil {
+		c.cacheSize -= int64(oldest.size)
+		delete(c.cache, oldest.key)
 	}
 }
 
