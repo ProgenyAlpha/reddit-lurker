@@ -20,7 +20,7 @@ An 800-comment Reddit thread costs ~120K tokens as raw JSON. Lurk delivers the s
 
 Most Reddit MCP servers fetch the top-level comments and call it a day. The best parts of Reddit are buried 4-5 replies deep — the correction, the real answer, the "actually you're wrong and here's why" that saves you hours. Lurk expands every collapsed branch, resolves every `+N more replies` placeholder, and reconstructs the full comment tree. Then it compresses everything into a compact notation that's purpose-built for LLMs.
 
-```
+```text
 Post: "Finally We have the best agentic AI at home"
  +-- Comment (180 pts)
  |   +-- Reply (46 pts)
@@ -55,13 +55,13 @@ The result:
 | Markdown | ~5,200 |
 | **Lurk compact** | **~3,050** |
 
-**77% fewer tokens than JSON. 42% fewer than markdown.** Same data, same structure, same depth. Claude never touches raw Reddit data — it gets exactly what it needs, already compressed.
+**77% fewer tokens than JSON. 42% fewer than Markdown.** Same data, same structure, same depth. Claude never touches raw Reddit data — it gets exactly what it needs, already compressed.
 
 ### Smart Comment Limiting
 
 Threads with 200+ comments get a preview first instead of dumping everything:
 
-```
+```text
 #post   r/ClaudeAI   u/poster   422pts   93%   805cmt   2026-01-28
 Finally We have the best agentic AI at home
 
@@ -347,7 +347,7 @@ lurk update                                                 # Self-update
 | `--limit` | Max results (default 25) | subreddit, search, user |
 | `--time` | hour, day, week, month, year, all | subreddit, search |
 | `--sub` | Restrict search to subreddit(s) — comma-separated for multi-sub | search |
-| `--after` | Pagination token for next page | subreddit, search |
+| `--after` | Pagination token for next page | subreddit, search (single-sub only) |
 | `--info` | Subreddit metadata instead of posts | subreddit |
 | `--json` | Raw JSON output | all |
 | `--compact` | Compact notation (default in MCP mode) | all |
@@ -374,7 +374,7 @@ Both modes use the same compact notation, so per-call token cost is identical. T
 
 Tab-delimited output designed for LLMs. `d0/d1/d2` = comment depth. Score before author. `+N` = collapsed comments not loaded. `#next` = pagination token. `#warning` = smart limit triggered.
 
-```
+```text
 #post   r/ClaudeAI   u/BusyBea2   1pts   57%   9cmt   2026-02-23
 Email and Claude
 Have you figured out how to use Claude to manage your inbox?

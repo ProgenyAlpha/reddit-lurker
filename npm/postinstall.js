@@ -51,8 +51,15 @@ async function extractZip(buffer, destDir) {
   const tmp = path.join(os.tmpdir(), `lurk-${Date.now()}.zip`);
   fs.writeFileSync(tmp, buffer);
   fs.mkdirSync(destDir, { recursive: true });
-  execSync(`powershell -Command "Expand-Archive -Force '${tmp}' '${destDir}'"`, { stdio: "pipe" });
-  fs.unlinkSync(tmp);
+  const esc = (p) => p.replace(/'/g, "''");
+  try {
+    execSync(
+      `powershell -NoProfile -NonInteractive -Command "Expand-Archive -Force -LiteralPath '${esc(tmp)}' -DestinationPath '${esc(destDir)}'"`,
+      { stdio: "pipe" }
+    );
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
 }
 
 async function extractTarGz(buffer, destDir) {
