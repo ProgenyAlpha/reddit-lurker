@@ -47,9 +47,10 @@ brews:
   - repository:
       owner: ProgenyAlpha
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     name: lurk
     homepage: "https://github.com/ProgenyAlpha/reddit-lurker"
-    description: "Reddit reader for LLMs — full comment trees, 77% fewer tokens"
+    description: "Reddit reader for LLMs — full comment trees, 94% fewer tokens"
     license: "MIT"
     install: |
       bin.install "lurk"
