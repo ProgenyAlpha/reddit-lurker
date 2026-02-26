@@ -30,7 +30,7 @@ The best parts of Reddit are buried 4-5 replies deep. The correction. The real a
 
 **Reddit Lurker does.**
 
-It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the full comment tree. Paste a Reddit URL and Claude gets the entire conversation.
+It expands every collapsed reply. Resolves every `kind: more`. Reconstructs the full comment tree. Paste a Reddit URL and Claude gets the entire conversation. Works with any LLM that can consume structured text.
 
 ```
 Post: "I gave Claude the one thing it was missing: memory"
@@ -256,6 +256,10 @@ make install-skill        # Install to ~/.claude/skills/reddit/
 rm -rf ~/.claude/skills/reddit                    # Remove skill
 # For MCP: edit ~/.claude.json, delete "lurk" from mcpServers
 ```
+
+## Project Status
+
+Actively maintained. Stable JSON parsing approach with minimal external dependencies. Read-only by design.
 
 ## License
 
