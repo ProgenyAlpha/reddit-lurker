@@ -194,7 +194,7 @@ function Install-Cline {
 }
 
 function Install-Zed {
-    $config = Join-Path $env:USERPROFILE ".config\zed\settings.json"
+    $config = Join-Path $env:APPDATA "Zed\settings.json"
     Write-Info "Configuring Zed MCP server"
     Write-McpConfig -ConfigFile $config -TopKey "context_servers" -LurkPath $BinaryPath
     Write-Warn "Restart Zed to load the new MCP server."
