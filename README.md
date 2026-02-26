@@ -251,7 +251,28 @@ d0	27	keypa_	"at home" we probably don't have the same home...
 ...
 ```
 
-**104 of 109 comments loaded. 10 levels deep.** The best stuff — hardware specs, cost breakdowns, the debate about whether 24 tok/s is actually useful for agentic workflows — is all buried at depth 3-9. Most tools never see it.
+**104 of 109 comments loaded. 10 levels deep.** The 5 missing comments are deleted/removed posts that Reddit still counts but no longer serves content for. Lurker fetched everything Reddit was willing to return.
+
+The best stuff — hardware specs, cost breakdowns, the debate about whether 24 tok/s is actually useful for agentic workflows — is all buried at depth 3-9. Most tools never see it.
+
+**Search works too.** Here's `lurk search "reddit MCP" --sub ClaudeAI --limit 5`:
+
+```
+#search	"reddit MCP"	ClaudeAI	5
+1	237pts	58cmt	r/ClaudeAI	u/karanb192	Reddit MCP just hit the Anthropic Directory
+2	2228pts	311cmt	r/ClaudeAI	u/JokeGold5455	Claude Code is a Beast – Tips from 6 Months of Hardcore Use
+3	67pts	23cmt	r/ClaudeAI	u/karanb192	Built an MCP server for Claude Desktop to browse Reddit in real-time
+4	0pts	7cmt	r/ClaudeAI	u/New-Requirement-3742	Open Sourcing my Reddit MCP Server (TypeScript + Apify)
+5	1pts	1cmt	r/ClaudeAI	u/hurrah-dev	I built an MCP server for the Reddit Ads API
+```
+
+Result #1 is the most popular Reddit MCP on the Anthropic Directory. In its comments, a user asks:
+
+> *"I see that it only extracts a few top level comments right? ... when I need summarization of comments I need all of them, not just a few top level."*
+
+The developer's response: *"You can instruct the LLM to fetch all comments. It'll then go up to 100 comments."*
+
+The thread example above has 104 comments — already past that tool's ceiling — and Lurker fetched every one of them with full depth. No cap, no truncation, no missing replies.
 
 ---
 
