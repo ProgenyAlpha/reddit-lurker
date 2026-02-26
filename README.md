@@ -37,11 +37,11 @@ Post: "Finally We have the best agentic AI at home"
  |   |                   +-- Reply (2 pts)
  |   |                       +-- Reply (4 pts)
  |   |                           +-- Reply (1 pt)
- |   |                               +-- Reply (2 pts)
+ |   |                               +-- Reply (2 pts)  <-- lurk gets all of it
  +-- Comment (82 pts)
- |   +-- Reply (45 pts)
+ |   +-- Reply (45 pts)              <-- lurk gets all of this too
  |       +-- Reply ...
- +-- Comment (60 pts)                <-- lurk gets all of it
+ +-- Comment (60 pts)
      +-- +47 more replies (expanded)
 ```
 
