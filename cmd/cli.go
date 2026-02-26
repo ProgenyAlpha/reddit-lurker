@@ -130,7 +130,7 @@ func Search(args []string) {
 	query, flags := extractPositionalAndFlags(args)
 
 	fs := flag.NewFlagSet("search", flag.ExitOnError)
-	sub := fs.String("sub", "", "Restrict to subreddit")
+	sub := fs.String("sub", "", "Restrict to subreddit(s) (comma-separated)")
 	sort := fs.String("sort", "relevance", "Sort order (relevance, hot, top, new, comments)")
 	limit := fs.Int("limit", 25, "Number of results")
 	timeFilter := fs.String("time", "", "Time filter (hour, day, week, month, year, all)")

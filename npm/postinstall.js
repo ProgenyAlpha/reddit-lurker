@@ -16,7 +16,7 @@ function getPlatform() {
   const platform = process.platform;
   const arch = process.arch;
 
-  const osMap = { linux: "linux", darwin: "darwin" };
+  const osMap = { linux: "linux", darwin: "darwin", win32: "windows" };
   const archMap = { x64: "amd64", arm64: "arm64" };
 
   const goos = osMap[platform];
@@ -47,25 +47,49 @@ function download(url) {
   });
 }
 
+async function extractZip(buffer, destDir) {
+  const tmp = path.join(os.tmpdir(), `lurk-${Date.now()}.zip`);
+  fs.writeFileSync(tmp, buffer);
+  fs.mkdirSync(destDir, { recursive: true });
+  const esc = (p) => p.replace(/'/g, "''");
+  try {
+    execSync(
+      `powershell -NoProfile -NonInteractive -Command "Expand-Archive -Force -LiteralPath '${esc(tmp)}' -DestinationPath '${esc(destDir)}'"`,
+      { stdio: "pipe" }
+    );
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
+}
+
 async function extractTarGz(buffer, destDir) {
-  // Write to temp file and extract with tar
   const tmp = path.join(os.tmpdir(), `lurk-${Date.now()}.tar.gz`);
   fs.writeFileSync(tmp, buffer);
   fs.mkdirSync(destDir, { recursive: true });
-  execSync(`tar xzf "${tmp}" -C "${destDir}"`, { stdio: "pipe" });
-  fs.unlinkSync(tmp);
+  try {
+    execSync(`tar xzf "${tmp}" -C "${destDir}"`, { stdio: "pipe" });
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
 }
 
 async function main() {
   const { goos, goarch } = getPlatform();
-  const archive = `lurk-${goos}-${goarch}.tar.gz`;
+  const isWindows = goos === "windows";
+  const archive = isWindows
+    ? `lurk-${goos}-${goarch}.zip`
+    : `lurk-${goos}-${goarch}.tar.gz`;
   const url = `https://github.com/${REPO}/releases/download/v${VERSION}/${archive}`;
 
   console.log(`Downloading lurk v${VERSION} for ${goos}/${goarch}...`);
 
   try {
     const data = await download(url);
-    await extractTarGz(data, BIN_DIR);
+    if (isWindows) {
+      await extractZip(data, BIN_DIR);
+    } else {
+      await extractTarGz(data, BIN_DIR);
+    }
 
     // Make binary executable
     fs.chmodSync(BIN_PATH, 0o755);

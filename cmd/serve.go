@@ -63,7 +63,7 @@ Compact notation:
 			mcp.Description("Time filter: hour, day, week, month, year, all"),
 		),
 		mcp.WithString("sub",
-			mcp.Description("Restrict search to subreddit (search command only)"),
+			mcp.Description("Restrict search to subreddit(s) — comma-separated for multi-sub (search only)"),
 		),
 	)
 }
@@ -76,7 +76,6 @@ func lurkHandler(client *reddit.Client) server.ToolHandlerFunc {
 		limit := req.GetInt("limit", 25)
 		timeFilter := req.GetString("time", "")
 		sub := req.GetString("sub", "")
-
 		if target == "" {
 			return mcp.NewToolResultError("target is required"), nil
 		}

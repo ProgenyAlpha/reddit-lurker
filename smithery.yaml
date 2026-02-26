@@ -1,0 +1,20 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      clientId:
+        type: string
+        description: "Reddit OAuth client ID (optional — enables 6x rate limit)"
+      clientSecret:
+        type: string
+        description: "Reddit OAuth client secret (optional)"
+  commandFunction: |
+    (config) => ({
+      command: "npx",
+      args: ["-y", "reddit-lurker", "serve"],
+      env: {
+        ...(config.clientId ? { LURK_CLIENT_ID: config.clientId } : {}),
+        ...(config.clientSecret ? { LURK_CLIENT_SECRET: config.clientSecret } : {})
+      }
+    })

@@ -3,6 +3,7 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 // fetchThreadBase fetches and parses a thread without expansion.
 func (c *Client) fetchThreadBase(permalink string, noCache bool) (*Thread, error) {
-	permalink = extractPermalink(permalink)
+	permalink = c.extractPermalink(permalink)
 
 	if !strings.Contains(permalink, "/comments/") {
 		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
@@ -280,14 +281,36 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 }
 
 // extractPermalink strips a full Reddit URL down to the path.
-func extractPermalink(raw string) string {
-	// Remove common Reddit domain prefixes
+func (c *Client) extractPermalink(raw string) string {
+	raw = strings.TrimSpace(raw)
+
+	// Resolve redd.it short links (but not v.redd.it, i.redd.it, preview.redd.it CDN URLs)
+	if strings.Contains(raw, "redd.it/") &&
+		!strings.Contains(raw, "v.redd.it/") &&
+		!strings.Contains(raw, "i.redd.it/") &&
+		!strings.Contains(raw, "preview.redd.it/") {
+		if resolved := c.resolveRedditShortLink(raw); resolved != "" {
+			raw = resolved
+		}
+	}
+
+	// All known Reddit domains — longer prefixes first to avoid partial matches
 	for _, prefix := range []string{
-		"https://www.reddit.com",
+		"https://np.reddit.com",
+		"https://new.reddit.com",
 		"https://old.reddit.com",
+		"https://www.reddit.com",
+		"https://m.reddit.com",
+		"https://amp.reddit.com",
+		"https://i.reddit.com",
 		"https://reddit.com",
-		"http://www.reddit.com",
+		"http://np.reddit.com",
+		"http://new.reddit.com",
 		"http://old.reddit.com",
+		"http://www.reddit.com",
+		"http://m.reddit.com",
+		"http://amp.reddit.com",
+		"http://i.reddit.com",
 		"http://reddit.com",
 	} {
 		if strings.HasPrefix(raw, prefix) {
@@ -295,6 +318,24 @@ func extractPermalink(raw string) string {
 		}
 	}
 	return raw
+}
+
+// resolveRedditShortLink follows a redd.it redirect to get the full URL.
+// Uses the shared client's transport but with redirect-following disabled.
+func (c *Client) resolveRedditShortLink(shortURL string) string {
+	redirectClient := &http.Client{
+		Transport: c.http.Transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Timeout: 5 * time.Second,
+	}
+	resp, err := redirectClient.Get(shortURL)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	return resp.Header.Get("Location")
 }
 
 // parseComment recursively parses a comment tree from Reddit's API response.

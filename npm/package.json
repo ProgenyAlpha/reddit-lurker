@@ -1,7 +1,7 @@
 {
   "name": "reddit-lurker",
   "version": "1.0.0",
-  "description": "Reddit reader for Claude Code — full comment trees, no auth, one binary",
+  "description": "Reddit reader for LLMs — full comment trees, 77% fewer tokens, one binary",
   "repository": {
     "type": "git",
     "url": "https://github.com/ProgenyAlpha/reddit-lurker"
