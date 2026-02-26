@@ -7,7 +7,7 @@ import (
 	"github.com/ProgenyAlpha/reddit-lurker/cmd"
 )
 
-const version = "1.0.0"
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -15,7 +15,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	switch os.Args[1] {
+	command := os.Args[1]
+
+	// Background update check for interactive commands (not serve, not update)
+	if command != "serve" && command != "update" {
+		go cmd.CheckForUpdate(version)
+	}
+
+	switch command {
 	case "thread":
 		cmd.Thread(os.Args[2:])
 	case "subreddit", "sub":
@@ -26,6 +33,8 @@ func main() {
 		cmd.User(os.Args[2:])
 	case "serve":
 		cmd.Serve(version)
+	case "update":
+		cmd.Update(version, os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Printf("lurk v%s\n", version)
 	case "help", "--help", "-h":
@@ -34,6 +43,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
 		printUsage()
 		os.Exit(1)
+	}
+
+	// Print update notice after interactive commands complete
+	if command != "serve" && command != "update" {
+		cmd.PrintUpdateNotice(version)
 	}
 }
 
@@ -46,6 +60,7 @@ Usage:
   lurk search <query> [flags]                Search Reddit
   lurk user <username> [flags]               View user activity
   lurk serve                                 Start MCP stdio server
+  lurk update [--check] [--force]             Check for and install updates
 
 Flags:
   --sort <value>     Sort order (hot, new, top, rising, controversial, relevance, comments)
@@ -55,6 +70,11 @@ Flags:
   --json             Output raw JSON
   --compact          Output compact notation (default in MCP mode)
   --no-cache         Skip cache
+
+Environment:
+  LURK_NO_UPDATE_CHECK=1    Disable background update checks
+
+  Or create ~/.config/lurk/no-update-check with any content.
 
 Examples:
   lurk thread "https://www.reddit.com/r/ClaudeAI/comments/abc123/post_title/"

@@ -1,6 +1,6 @@
 BINARY := lurk
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS := -ldflags "-s -w"
+VERSION := $(shell v=$$(git describe --tags --always --dirty 2>/dev/null | sed 's/^v//'); [ -n "$$v" ] && echo "$$v" || echo "dev")
+LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 GOFILES := $(shell find . -name '*.go' -type f)
 
 .PHONY: build clean install test all
