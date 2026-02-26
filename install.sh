@@ -152,7 +152,7 @@ echo "  6) Zed"
 echo "  7) All of the above"
 echo "  8) Just install the binary (I'll configure it myself)"
 echo
-read -rp "Choose [1-8] (default: 1): " editor
+read -rp "Choose [1-8] (default: 1): " editor </dev/tty
 editor="${editor:-1}"
 
 # ─── Choose mode (for editors that support both) ─────────────
