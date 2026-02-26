@@ -73,6 +73,9 @@ func NewClient() *Client {
 	return &Client{
 		http: &http.Client{
 			Timeout: 30 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 		},
 		cache:   make(map[string]*cacheEntry),
 		limiter: newRateLimiter(unauthRateLimit),
@@ -112,14 +115,14 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 
 		resp, err := c.http.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("request failed: %w", err)
+			lastErr = fmt.Errorf("network error — check your internet connection")
 			continue
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			lastErr = fmt.Errorf("reading body: %w", err)
+			lastErr = fmt.Errorf("failed to read response from Reddit")
 			continue
 		}
 
@@ -131,11 +134,18 @@ func (c *Client) Fetch(path string, noCache bool) ([]byte, error) {
 			return nil, fmt.Errorf("access denied — subreddit may be private (requires auth) or quarantined")
 		case resp.StatusCode == 404:
 			return nil, fmt.Errorf("not found — check the URL or subreddit name")
-		case resp.StatusCode == 429 || resp.StatusCode >= 500:
-			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+		case resp.StatusCode == 429:
+			lastErr = fmt.Errorf("rate limited — too many requests, try again shortly")
 			continue
+		case resp.StatusCode >= 500:
+			lastErr = fmt.Errorf("Reddit server error (HTTP %d) — Reddit may be down", resp.StatusCode)
+			continue
+		case resp.StatusCode == 301 || resp.StatusCode == 302:
+			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
+		case resp.StatusCode == 401:
+			return nil, fmt.Errorf("unauthorized — this content may require authentication")
 		default:
-			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
+			return nil, fmt.Errorf("unexpected error (HTTP %d)", resp.StatusCode)
 		}
 	}
 
@@ -177,14 +187,14 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 
 		resp, err := c.http.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("request failed: %w", err)
+			lastErr = fmt.Errorf("network error — check your internet connection")
 			continue
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			lastErr = fmt.Errorf("reading body: %w", err)
+			lastErr = fmt.Errorf("failed to read response from Reddit")
 			continue
 		}
 
@@ -196,11 +206,18 @@ func (c *Client) FetchPost(path string, formData url.Values, noCache bool) ([]by
 			return nil, fmt.Errorf("access denied — subreddit may be private (requires auth) or quarantined")
 		case resp.StatusCode == 404:
 			return nil, fmt.Errorf("not found — check the URL or subreddit name")
-		case resp.StatusCode == 429 || resp.StatusCode >= 500:
-			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+		case resp.StatusCode == 429:
+			lastErr = fmt.Errorf("rate limited — too many requests, try again shortly")
 			continue
+		case resp.StatusCode >= 500:
+			lastErr = fmt.Errorf("Reddit server error (HTTP %d) — Reddit may be down", resp.StatusCode)
+			continue
+		case resp.StatusCode == 301 || resp.StatusCode == 302:
+			return nil, fmt.Errorf("redirect — URL may be malformed or pointing to a non-API page")
+		case resp.StatusCode == 401:
+			return nil, fmt.Errorf("unauthorized — this content may require authentication")
 		default:
-			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
+			return nil, fmt.Errorf("unexpected error (HTTP %d)", resp.StatusCode)
 		}
 	}
 
@@ -228,7 +245,7 @@ func (c *Client) FetchMoreChildren(linkID string, childrenIDs []string, noCache 
 		} `json:"json"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parsing morechildren response: %w", err)
+		return nil, fmt.Errorf("failed to expand collapsed comments — Reddit returned an unexpected response")
 	}
 
 	var comments []*Comment
@@ -265,7 +282,7 @@ func (c *Client) setCache(key string, data []byte) {
 func ParseListing(data []byte) (*Listing, error) {
 	var listing Listing
 	if err := json.Unmarshal(data, &listing); err != nil {
-		return nil, fmt.Errorf("parsing listing: %w", err)
+		return nil, fmt.Errorf("unexpected response format — Reddit may have returned an error page or changed its API")
 	}
 	return &listing, nil
 }

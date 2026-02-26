@@ -20,7 +20,7 @@ func (c *Client) GetUser(username string, limit int, noCache bool) (*UserInfo, [
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(aboutData, &aboutThing); err != nil {
-		return nil, nil, nil, fmt.Errorf("parsing user info for %s: %w", username, err)
+		return nil, nil, nil, fmt.Errorf("unexpected response for u/%s — user may not exist or account is suspended", username)
 	}
 
 	d := aboutThing.Data

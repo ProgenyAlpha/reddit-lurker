@@ -13,6 +13,11 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 	// Strip full URL down to the path portion
 	permalink = extractPermalink(permalink)
 
+	// Validate that it looks like a thread URL (must contain /comments/)
+	if !strings.Contains(permalink, "/comments/") {
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
+	}
+
 	// Ensure trailing slash
 	if !strings.HasSuffix(permalink, "/") {
 		permalink += "/"
@@ -28,16 +33,16 @@ func (c *Client) GetThread(permalink string, noCache bool) (*Thread, error) {
 	// Reddit returns an array of 2 listings: [post_listing, comments_listing]
 	var listings []Listing
 	if err := json.Unmarshal(data, &listings); err != nil {
-		return nil, fmt.Errorf("parsing thread listings: %w", err)
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
 	}
 
 	if len(listings) < 2 {
-		return nil, fmt.Errorf("unexpected thread response: got %d listings, want 2", len(listings))
+		return nil, fmt.Errorf("not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title")
 	}
 
 	// First listing contains the post
 	if len(listings[0].Data.Children) == 0 {
-		return nil, fmt.Errorf("thread listing has no post")
+		return nil, fmt.Errorf("thread has no post — it may have been deleted or removed")
 	}
 
 	post := ParsePost(listings[0].Data.Children[0].Data)

@@ -57,7 +57,7 @@ func (c *Client) GetSubredditInfo(name string, noCache bool) (*SubredditInfo, er
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(data, &thing); err != nil {
-		return nil, fmt.Errorf("parsing subreddit info for %s: %w", name, err)
+		return nil, fmt.Errorf("unexpected response for r/%s — subreddit may not exist or Reddit returned an error", name)
 	}
 
 	d := thing.Data
