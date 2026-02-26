@@ -74,6 +74,8 @@ Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 
 Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (10 req/min) with automatic retry and backoff.
 
+**Note:** Lurker only works with public subreddits and posts. Private and restricted subreddits require authentication, which Lurker deliberately does not support.
+
 ## Install
 
 ### Zero-Dependency Install
