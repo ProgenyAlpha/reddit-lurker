@@ -241,6 +241,9 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 	inserted := 0
 	var orphans []*Comment
 	for _, c := range fetched {
+		if _, exists := existingByID[c.ID]; exists {
+			continue // already inserted from a previous pass
+		}
 		if parent, ok := existingByID[c.ParentID]; ok {
 			parent.Replies = append(parent.Replies, c)
 			existingByID[c.ID] = c // make it findable for subsequent inserts
