@@ -72,13 +72,12 @@ Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 ## Why Not Use Reddit's Official API?
 
 - Requires approval under the Responsible Builder Policy (self-serve keys no longer available)
-- Returns `"kind": "more"` stubs for deep replies that most clients never expand
-- Adds OAuth complexity and token management
+- Adds OAuth complexity and token management for what should be a read-only operation
 - Keys can expire mid-workflow
 
 Reddit still serves full JSON on every public page. Lurker uses that. No signup, no approval wait, no tokens to rotate. Respects Reddit's unauthenticated rate limits (10 req/min) with automatic retry and backoff.
 
-**Note:** Lurker only works with public subreddits and posts. Private and restricted subreddits require authentication, which Lurker deliberately does not support.
+**Note:** Lurker only works with public subreddits and posts. Private and restricted subreddits require authentication, which Lurker does not support at this time.
 
 ## Install
 
@@ -88,7 +87,7 @@ Reddit still serves full JSON on every public page. Lurker uses that. No signup,
 curl -fsSL https://raw.githubusercontent.com/ProgenyAlpha/reddit-lurker/master/install.sh | bash
 ```
 
-No Node. No Go. No nothing. Downloads the binary for your platform and sets up Claude Code.
+No Node. No Go. No nothing. Downloads the binary for your platform and walks you through editor setup. Supports Claude Code, Cursor, Windsurf, VS Code, Cline, and Zed.
 
 ### Node Install
 
@@ -116,16 +115,60 @@ cd reddit-lurker
 
 ---
 
-The installer asks one question: **Skill or MCP?**
+The installer walks you through editor selection and integration mode.
 
-| | Skill | MCP |
-|---|---|---|
-| **How it works** | Claude runs a shell command when needed | A background server gives Claude a native tool |
-| **Context overhead** | ~20 tokens/message (lightweight) | ~438 tokens/message (heavier) |
-| **Caching between calls** | None (fresh process each call) | Yes (server stays warm, 15-min cache) |
-| **Requires Bash permission** | Yes | No |
+### Supported Editors
 
-**Pick Skill** if you want minimal overhead and don't mind Bash prompts. **Pick MCP** if you use Reddit often (cache helps) or run Claude Code with Bash restricted. You can always switch later.
+| Editor | Config location | MCP key |
+|--------|----------------|---------|
+| Claude Code | `~/.claude.json` or `~/.claude/skills/reddit/` | `mcpServers` |
+| Cursor | `~/.cursor/mcp.json` | `mcpServers` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` |
+| VS Code | `~/.config/Code/User/mcp.json` | `servers` |
+| Cline | VS Code globalStorage (auto-detected) | `mcpServers` |
+| Zed | `~/.config/zed/settings.json` | `context_servers` |
+
+Claude Code also supports a **Skill** mode (~20 tokens overhead vs ~438 for MCP). The installer will ask which you prefer.
+
+### Manual Configuration
+
+If you installed the binary yourself, add lurk to your editor's MCP config:
+
+**Claude Code, Cursor, Windsurf, Cline:**
+```json
+{
+  "mcpServers": {
+    "lurk": {
+      "command": "lurk",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+**VS Code (Copilot Chat):**
+```json
+{
+  "servers": {
+    "lurk": {
+      "command": "lurk",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+**Zed:**
+```json
+{
+  "context_servers": {
+    "lurk": {
+      "command": "lurk",
+      "args": ["serve"]
+    }
+  }
+}
+```
 
 ## Usage
 
