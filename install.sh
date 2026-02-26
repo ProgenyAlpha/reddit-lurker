@@ -152,8 +152,22 @@ echo "  6) Zed"
 echo "  7) All of the above"
 echo "  8) Just install the binary (I'll configure it myself)"
 echo
-read -rp "Choose [1-8] (default: 1): " editor </dev/tty
-editor="${editor:-1}"
+read -rp "Choose [1-8, comma-separated] (default: 1): " editor_input </dev/tty
+editor_input="${editor_input:-1}"
+
+# Parse comma-separated choices into array
+IFS=',' read -ra editor_choices <<< "$editor_input"
+# Trim whitespace from each choice
+for i in "${!editor_choices[@]}"; do
+    editor_choices[$i]=$(echo "${editor_choices[$i]}" | tr -d ' ')
+done
+# Validate all choices
+for choice in "${editor_choices[@]}"; do
+    case "$choice" in
+        [1-8]) ;;
+        *) fail "Invalid choice: $choice" ;;
+    esac
+done
 
 # ─── Choose mode (for editors that support both) ─────────────
 
@@ -434,17 +448,18 @@ install_binary_only() {
 
 # ─── Execute ───────────────────────────────────────────────────
 
-case "$editor" in
-    1) install_claude ;;
-    2) install_cursor ;;
-    3) install_windsurf ;;
-    4) install_vscode ;;
-    5) install_cline ;;
-    6) install_zed ;;
-    7) install_all ;;
-    8) install_binary_only ;;
-    *) fail "Invalid choice: $editor" ;;
-esac
+for editor in "${editor_choices[@]}"; do
+    case "$editor" in
+        1) install_claude ;;
+        2) install_cursor ;;
+        3) install_windsurf ;;
+        4) install_vscode ;;
+        5) install_cline ;;
+        6) install_zed ;;
+        7) install_all ;;
+        8) install_binary_only ;;
+    esac
+done
 
 echo
 ok "Done! Restart your editor and try pasting a Reddit URL."
