@@ -13,7 +13,12 @@
   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 
-**v1.0.0** | [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](https://go.dev) [![License: MIT](https://img.shields.io/github/license/ProgenyAlpha/reddit-lurker)](https://github.com/ProgenyAlpha/reddit-lurker/blob/master/LICENSE) [![Release](https://img.shields.io/github/v/release/ProgenyAlpha/reddit-lurker)](https://github.com/ProgenyAlpha/reddit-lurker/releases)
+<p align="center">
+  <a href="https://github.com/ProgenyAlpha/reddit-lurker/releases"><img src="https://img.shields.io/github/v/release/ProgenyAlpha/reddit-lurker" alt="Release"></a>
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white" alt="Go"></a>
+  <a href="https://github.com/ProgenyAlpha/reddit-lurker/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ProgenyAlpha/reddit-lurker" alt="License: MIT"></a>
+  <a href="https://github.com/ProgenyAlpha/reddit-lurker"><img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey" alt="Platform"></a>
+</p>
 
 > Full Reddit threads for Claude. No keys. No OAuth. No missing replies.
 
