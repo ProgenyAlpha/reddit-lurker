@@ -1,8 +1,8 @@
 # reddit-lurker
 
-> Every comment. Every reply. 77% fewer tokens.
+> Every comment. Every reply. 94% fewer tokens.
 
-Reddit MCP server for AI coding tools. Fetches full comment trees at any depth, compresses them into compact notation, and delivers 77% fewer tokens than raw JSON.
+Reddit MCP server for AI coding tools. Fetches full comment trees at any depth, compresses them into compact notation, and delivers 94% fewer tokens than raw JSON.
 
 Most Reddit tools fetch top-level comments and stop. Lurk expands every collapsed branch, resolves every `+N more replies` placeholder, and reconstructs the full tree.
 
@@ -41,7 +41,7 @@ This downloads the platform binary and runs the MCP server. Add it to your edito
 ## What It Does
 
 - **Full comment trees** at any depth — every collapsed branch expanded
-- **77% fewer tokens** than JSON, 42% fewer than Markdown
+- **94% fewer tokens** than JSON, 44% fewer than Markdown
 - **Smart limiting** — threads with 200+ comments preview first, expand on demand
 - **Adaptive caching** — 2-30min TTLs by content type, 50MB LRU cap
 - **Multi-subreddit search** — comma-separated subs, parallel fetch, deduped results
@@ -50,11 +50,13 @@ This downloads the platform binary and runs the MCP server. Add it to your edito
 
 ## Token Savings
 
-| Format | ~Tokens (109-comment thread) |
-|--------|------------------------------|
-| Raw Reddit JSON | ~12,000 |
-| Markdown | ~5,200 |
-| **Lurk compact** | **~3,050** |
+Benchmarked across 12 threads (452 comments, 6 subreddits):
+
+| Format | Total Tokens | vs JSON | vs Markdown |
+|--------|-------------|---------|-------------|
+| Raw Reddit JSON | 286,425 | — | — |
+| Markdown | 28,993 | -90% | — |
+| **Lurk (compact)** | **16,186** | **-94%** | **-44%** |
 
 ## OAuth (Optional)
 

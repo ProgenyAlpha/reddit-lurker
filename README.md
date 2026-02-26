@@ -28,9 +28,9 @@
   <a href="https://github.com/ProgenyAlpha/reddit-lurker"><img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey" alt="Platform"></a>
 </p>
 
-> Every comment. Every reply. 77% fewer tokens.
+> Every comment. Every reply. 94% fewer tokens.
 
-An 800-comment Reddit thread costs ~120K tokens as raw JSON. Lurk delivers the same thread — full depth, every expanded reply — in ~31K tokens.
+An 800-comment Reddit thread costs ~120K tokens as raw JSON. Lurk delivers the same thread — full depth, every expanded reply — in a fraction of that.
 
 Most Reddit tools fetch top-level comments and stop. The useful stuff is buried 4-5 replies deep. Lurk expands every collapsed branch, resolves every `+N more replies` placeholder, and reconstructs the full comment tree. Then compresses it into compact tab-delimited notation before it reaches your model.
 
@@ -63,15 +63,15 @@ The Go binary preprocesses everything before tokens reach your model:
 2. **Extract** — Strips the 50+ unused fields per comment (gildings, awards, flair, metadata) down to 5-6 that matter
 3. **Compress** — Formats into compact tab-delimited notation: `d0 180 Recent-Success-1520 If you can host Kimi 2.5...`
 
-The result:
+The result (benchmarked across 12 threads, 452 comments, 6 subreddits):
 
-| Format | ~Tokens for 109-comment thread |
-|--------|-------------------------------|
-| Raw Reddit JSON | ~12,000 |
-| Markdown | ~5,200 |
-| **Lurk compact** | **~3,050** |
+| Format | Total Tokens | vs JSON | vs Markdown |
+|--------|-------------|---------|-------------|
+| Raw Reddit JSON | 286,425 | — | — |
+| Markdown | 28,993 | -90% | — |
+| **Lurk (compact)** | **16,186** | **-94%** | **-44%** |
 
-**77% fewer tokens than JSON. 42% fewer than Markdown.** Same data, same structure, same depth.
+**94% fewer tokens than JSON. 44% fewer than Markdown.** Savings scale with thread depth — shallow quips save ~10-25% vs markdown, deep technical threads save 50-64%.
 
 ### Smart Comment Limiting
 
@@ -93,7 +93,7 @@ Claude sees the warning and decides whether to fetch everything or grab the top 
 ## What You Get
 
 - **Full comment trees** at any depth — every collapsed branch expanded
-- **42% fewer tokens** than Markdown, 77% fewer than raw JSON
+- **94% fewer tokens** than JSON, 44% fewer than Markdown
 - **Smart limiting** — large threads preview first, expand on demand
 - **Adaptive caching** — new feeds: 2min, hot: 5min, threads: 10min, top: 30min, 50MB LRU cap
 - **Multi-subreddit search** — comma-separated subs, parallel fetch, deduped results
@@ -303,15 +303,23 @@ d0	27	keypa_	"at home" we probably don't have the same home...
 
 Real numbers from live Reddit threads:
 
-| Thread | Comments fetched | Compact tokens | Savings vs JSON | Fetch time |
-|--------|-----------------|---------------|-----------------|------------|
-| 25-comment announcement | 25 / 25 (100%) | ~786 | **74%** | ~0.3s |
-| 83-comment discussion | 80 / 83 (96%) | ~1,905 | **79%** | ~1.4s |
-| 109-comment deep thread | 104 / 109 (95%) | ~3,050 | **79%** | ~0.6s |
-| 348-comment mega thread | 340 / 348 (98%) | ~8,100 | **77%** | ~3.2s |
-| 1,092-comment mega thread | 805 / 1,092 (74%) | ~34,500 | **77%** | ~4.8s |
+| Thread | Comments | JSON tokens | MD tokens | Lurk tokens | vs JSON | vs MD |
+|--------|----------|-------------|-----------|-------------|---------|-------|
+| r/ClaudeAI (32c) | 32 | 18,721 | 1,604 | 1,206 | -94% | -25% |
+| r/homelab (32c) | 32 | 19,991 | 1,318 | 961 | -95% | -27% |
+| r/linux (32c) | 32 | 21,746 | 3,081 | 1,416 | -93% | -54% |
+| r/selfhosted (34c) | 34 | 19,874 | 1,949 | 1,288 | -94% | -34% |
+| r/ClaudeAI (36c) | 35 | 20,936 | 2,160 | 1,479 | -93% | -32% |
+| r/LocalLLaMA (36c) | 36 | 19,901 | 1,243 | 1,115 | -94% | -10% |
+| r/selfhosted (37c) | 36 | 20,333 | 1,454 | 1,140 | -94% | -22% |
+| r/selfhosted (40c) | 40 | 22,308 | 1,227 | 1,068 | -95% | -13% |
+| r/ClaudeAI (43c) | 42 | 29,426 | 4,065 | 1,562 | -95% | -62% |
+| r/LocalLLaMA (44c) | 44 | 25,797 | 1,922 | 1,302 | -95% | -32% |
+| r/LocalLLaMA (45c) | 43 | 35,066 | 4,245 | 1,519 | -96% | -64% |
+| r/LocalLLaMA (48c) | 46 | 32,326 | 4,725 | 2,130 | -93% | -55% |
+| **Total** | **452** | **286,425** | **28,993** | **16,186** | **-94%** | **-44%** |
 
-Most threads return 95%+ of comments. Mega threads (1,000+) hit diminishing returns because Reddit counts deleted/removed comments in the total but no longer serves them — the ~287 "missing" in the 1,092 thread are ghosts.
+Markdown savings vs JSON vary by thread verbosity. Lurk's compact notation consistently saves 93-96% vs JSON and 10-64% vs Markdown, with deeper technical threads showing the largest gains.
 
 ## Updates
 
