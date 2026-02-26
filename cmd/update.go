@@ -49,8 +49,16 @@ func Update(currentVersion string, args []string) {
 		os.Exit(1)
 	}
 
-	updater, _ := selfupdate.NewUpdater(selfupdate.Config{})
-	latest, found, err := updater.DetectLatest(context.Background(), selfupdate.NewRepositorySlug(repoOwner, repoName))
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing updater: %s\n", err)
+		os.Exit(1)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	latest, found, err := updater.DetectLatest(ctx, selfupdate.NewRepositorySlug(repoOwner, repoName))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error checking for updates: %s\n", err)
 		os.Exit(1)
@@ -75,7 +83,7 @@ func Update(currentVersion string, args []string) {
 		return
 	}
 
-	if err := updater.UpdateTo(context.Background(), latest, exe); err != nil {
+	if err := updater.UpdateTo(ctx, latest, exe); err != nil {
 		fmt.Fprintf(os.Stderr, "Update failed: %s\n", err)
 		os.Exit(1)
 	}
@@ -175,20 +183,22 @@ func detectInstallMethod() string {
 
 // isGoInstall checks if the binary is in GOPATH/bin or GOBIN.
 func isGoInstall(path string) bool {
+	binDir := filepath.Dir(filepath.Clean(path))
+
 	if gobin := os.Getenv("GOBIN"); gobin != "" {
-		if strings.HasPrefix(path, gobin) {
+		if binDir == filepath.Clean(gobin) {
 			return true
 		}
 	}
 	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		if strings.HasPrefix(path, filepath.Join(gopath, "bin")) {
+		if binDir == filepath.Join(gopath, "bin") {
 			return true
 		}
 	}
 	// Default GOPATH is ~/go
 	home, err := os.UserHomeDir()
 	if err == nil {
-		if strings.HasPrefix(path, filepath.Join(home, "go", "bin")) {
+		if binDir == filepath.Join(home, "go", "bin") {
 			return true
 		}
 	}
@@ -210,13 +220,13 @@ func updateCommand(method string) string {
 
 // checkWritePermission verifies we can write to a directory.
 func checkWritePermission(dir string) error {
-	tmp := filepath.Join(dir, ".lurk-update-test")
-	f, err := os.Create(tmp)
+	f, err := os.CreateTemp(dir, ".lurk-update-check-*")
 	if err != nil {
 		return err
 	}
+	name := f.Name()
 	f.Close()
-	os.Remove(tmp)
+	os.Remove(name)
 	return nil
 }
 
