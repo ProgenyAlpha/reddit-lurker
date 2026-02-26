@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Install reddit-lurker (lurk) on Windows.
@@ -71,8 +71,10 @@ try {
             }
             Write-Ok "Checksum verified"
         }
+    } catch [System.Net.WebException] {
+        # Checksum file not available for this release, skip verification
     } catch {
-        # Checksum file not available, skip
+        Write-Warn "Checksum verification skipped: $($_.Exception.Message)"
     }
 
     Expand-Archive -Path (Join-Path $TmpDir $Archive) -DestinationPath $TmpDir -Force
@@ -115,7 +117,9 @@ Write-Host ""
 $choice = Read-Host "Choose [1-8, comma-separated] (default: 1)"
 if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
 
-$editors = $choice -split ',' | ForEach-Object { $_.Trim() }
+$editors = $choice -split ',' | ForEach-Object { $_.Trim() } | Select-Object -Unique
+if ($editors -contains '7') { $editors = @('7') }
+if ($editors -contains '8' -and $editors.Count -gt 1) { $editors = $editors | Where-Object { $_ -ne '8' } }
 foreach ($e in $editors) {
     if ($e -notmatch '^[1-8]$') { Write-Fail "Invalid choice: $e" }
 }
