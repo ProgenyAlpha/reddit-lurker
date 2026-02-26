@@ -15,6 +15,7 @@
     "postinstall": "node postinstall.js"
   },
   "files": [
+    "README.md",
     "postinstall.js",
     "setup.js",
     "bin/"

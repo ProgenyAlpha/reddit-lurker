@@ -188,9 +188,12 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 		allIDs = append(allIDs, m.moreIDs...)
 	}
 
+	// Track which IDs were successfully fetched so we only remove
+	// placeholders whose batches actually succeeded.
 	const batchSize = 100
 	var fetched []*Comment
 	var fetchedMore []*Comment // new "more" placeholders from expansion
+	fetchedIDs := make(map[string]bool)
 	for i := 0; i < len(allIDs); i += batchSize {
 		end := i + batchSize
 		if end > len(allIDs) {
@@ -199,6 +202,10 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 		batch, err := client.FetchMoreChildren(thread.Post.ID, allIDs[i:end], noCache)
 		if err != nil {
 			continue
+		}
+		// Mark these IDs as successfully fetched
+		for _, id := range allIDs[i:end] {
+			fetchedIDs[id] = true
 		}
 		for _, c := range batch {
 			if c != nil {
@@ -234,6 +241,9 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 	inserted := 0
 	var orphans []*Comment
 	for _, c := range fetched {
+		if _, exists := existingByID[c.ID]; exists {
+			continue // already inserted from a previous pass
+		}
 		if parent, ok := existingByID[c.ParentID]; ok {
 			parent.Replies = append(parent.Replies, c)
 			existingByID[c.ID] = c // make it findable for subsequent inserts
@@ -257,10 +267,21 @@ func expandMoreComments(client *Client, thread *Thread, noCache bool) int {
 		}
 	}
 
-	// Remove "more" placeholders that were expanded
-	// Process in reverse order to maintain stable indices
+	// Only remove "more" placeholders whose IDs were all successfully fetched.
+	// If a batch failed, keep the placeholder so it can be retried on the next pass.
+	// Process in reverse order to maintain stable indices.
 	for i := len(mores) - 1; i >= 0; i-- {
 		m := mores[i]
+		allFetched := true
+		for _, id := range m.moreIDs {
+			if !fetchedIDs[id] {
+				allFetched = false
+				break
+			}
+		}
+		if !allFetched {
+			continue
+		}
 		parent := *m.parent
 		if m.index < len(parent) {
 			newSlice := make([]*Comment, 0, len(parent)-1)

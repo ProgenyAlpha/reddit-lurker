@@ -80,23 +80,27 @@ func newRateLimiter(maxPerMin int) *rateLimiter {
 }
 
 func (rl *rateLimiter) wait() {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
+	for {
+		rl.mu.Lock()
+		now := time.Now()
+		elapsed := now.Sub(rl.lastFill)
+		if elapsed >= rateLimitWindow {
+			rl.tokens = rl.max
+			rl.lastFill = now
+		}
 
-	now := time.Now()
-	elapsed := now.Sub(rl.lastFill)
-	if elapsed >= rateLimitWindow {
-		rl.tokens = rl.max
-		rl.lastFill = now
-	}
+		if rl.tokens > 0 {
+			rl.tokens--
+			rl.mu.Unlock()
+			return
+		}
 
-	if rl.tokens <= 0 {
+		// Out of tokens — compute wait, release lock, then sleep.
+		// Other goroutines can proceed if tokens refill while we wait.
 		wait := rateLimitWindow - elapsed
+		rl.mu.Unlock()
 		time.Sleep(wait)
-		rl.tokens = rl.max
-		rl.lastFill = time.Now()
 	}
-	rl.tokens--
 }
 
 // NewClient creates a new Reddit API client.

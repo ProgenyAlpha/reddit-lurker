@@ -64,7 +64,16 @@ func (c *Client) Search(query string, sub string, sort SortOrder, limit int, tim
 // successful results are returned. Only returns an error if ALL subreddits fail.
 // Pagination is not supported for multi-sub queries — the after token is always empty.
 func (c *Client) searchMulti(query string, subs string, sortOrder SortOrder, limit int, timeFilter TimeFilter, noCache bool) ([]*Post, string, error) {
-	parts := strings.Split(subs, ",")
+	raw := strings.Split(subs, ",")
+	var parts []string
+	for _, p := range raw {
+		if s := strings.TrimSpace(p); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	if len(parts) > 10 {
+		return nil, "", fmt.Errorf("too many subreddits (max 10, got %d)", len(parts))
+	}
 	type result struct {
 		posts []*Post
 		err   error
@@ -72,11 +81,6 @@ func (c *Client) searchMulti(query string, subs string, sortOrder SortOrder, lim
 	ch := make(chan result, len(parts))
 
 	for _, s := range parts {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			ch <- result{}
-			continue
-		}
 		go func(sub string) {
 			posts, _, err := c.Search(query, sub, sortOrder, limit, timeFilter, "", noCache)
 			ch <- result{posts, err}
