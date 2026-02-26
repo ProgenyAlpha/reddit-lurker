@@ -77,7 +77,7 @@ Claude sees the warning and decides whether to fetch everything or grab the top 
 ## What You Get
 
 - **Full comment trees** at any depth — every collapsed branch expanded
-- **77% token savings** vs raw JSON, 42% vs markdown
+- **42% fewer tokens** than Markdown, 77% fewer than raw JSON
 - **Smart limiting** — large threads preview first, expand on demand
 - **Adaptive caching** — new feeds: 2min, hot: 5min, threads: 10min, top: 30min, 50MB LRU cap
 - **Multi-subreddit search** — comma-separated subs, parallel fetch, deduped results
@@ -116,7 +116,7 @@ brew install ProgenyAlpha/tap/lurk
 npx reddit-lurker
 ```
 
-If you already have Node/npm. Same binary, different delivery truck.
+If you already have Node/npm. Same binary, different delivery truck. Also available on [Smithery](https://smithery.ai).
 
 ### Go Install
 
