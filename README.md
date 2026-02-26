@@ -68,7 +68,7 @@ Most tools stop at depth 1 or 2. Lurker reconstructs the entire tree.
 - Cross-posts traced back to the original
 - Galleries, video, media URLs extracted
 - 15-minute cache (same thread twice = instant)
-- ~42% fewer tokens than markdown output
+- 74-79% fewer tokens than raw JSON output
 - Single Go binary, zero dependencies
 - Read-only by design
 
@@ -285,6 +285,41 @@ The developer's response: *"You can instruct the LLM to fetch all comments. It'l
 
 Lurker pulled 104 comments from that thread on the first call — no "fetch more" instruction needed, no second request. That's already past their tool's ceiling, with full depth to boot.
 
+## Benchmarks
+
+Real numbers from live Reddit threads (February 2025):
+
+| Thread | Comments | Compact | JSON | Savings | Fetch time |
+|--------|----------|---------|------|---------|------------|
+| 25-comment announcement | 25 | ~786 tokens | ~3,046 tokens | **74%** | 257ms |
+| 83-comment discussion | 80 | ~1,905 tokens | ~9,330 tokens | **79%** | 567ms |
+| 109-comment deep thread | 104 | ~3,050 tokens | ~15,007 tokens | **79%** | 588ms |
+| 348-comment mega thread | 183 | ~7,889 tokens | ~34,609 tokens | **77%** | 2.1s |
+
+Compact notation saves 74-79% of tokens compared to raw JSON. A typical thread fetch is 1-3 HTTP requests depending on how many collapsed comment branches need expanding. The rate limiter caps at 10 requests/minute (Reddit's unauthenticated limit), so even a massive thread with multiple expansion batches won't get you rate limited under normal use.
+
+## Error Handling
+
+Lurker fails cleanly with a reason, never with raw HTTP dumps or Go stack traces:
+
+| Scenario | Error message |
+|----------|---------------|
+| Deleted/nonexistent thread | `not found — check the URL or subreddit name` |
+| Private/quarantined subreddit | `access denied — subreddit may be private (requires auth) or quarantined` |
+| Malformed URL | `not a valid thread URL — expected a link like reddit.com/r/sub/comments/id/title` |
+| Reddit is down | `Reddit server error (HTTP 5xx) — Reddit may be down` |
+| No internet | `network error — check your internet connection` |
+| Rate limited | `rate limited — too many requests, try again shortly` |
+
+Deleted comments show as `[deleted]` in the output — Reddit still counts them in the comment total but no longer serves content for them.
+
+## Limitations
+
+- **Public content only.** Private, restricted, and quarantined subreddits require OAuth, which Lurker doesn't support.
+- **Unauthenticated rate limit.** 10 requests/minute with automatic retry and exponential backoff. Enough for normal use, not for bulk scraping (and that's intentional).
+- **One level of expansion.** Lurker expands collapsed "load more" branches once. Extremely deep mega-threads (1000+ comments) may not fetch every last reply, but will get the vast majority.
+- **No NSFW age gates.** Some NSFW subreddits gate content behind login even for public posts.
+
 ---
 
 ## Reference
@@ -329,7 +364,7 @@ Both modes use the same compact notation for output, so per-call token cost is i
 
 ### Compact Notation
 
-Both Skill and MCP use compact tab-delimited output designed for LLMs. Same data as markdown, ~42% fewer tokens. Here's what Claude sees:
+Both Skill and MCP use compact tab-delimited output designed for LLMs. Same data as markdown, ~42% fewer tokens (and ~77% fewer than raw JSON). Here's what Claude sees:
 
 **Standard markdown (for comparison):**
 ```markdown
@@ -364,7 +399,7 @@ d0	2	turtle-toaster	Claude Settings lets you connect your Gmail
 ```
 ~105 tokens
 
-Same thread, same structure, **42% fewer tokens.** `d0/d1/d2` = comment depth. Score before author. `+N` = collapsed comments. `#next` = pagination token.
+Same thread, same structure, **42% fewer tokens than markdown, 77% fewer than JSON.** `d0/d1/d2` = comment depth. Score before author. `+N` = collapsed comments. `#next` = pagination token.
 
 ### Under the Hood
 
