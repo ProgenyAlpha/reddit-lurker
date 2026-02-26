@@ -65,9 +65,6 @@ func (c *Client) Search(query string, sub string, sort SortOrder, limit int, tim
 // Pagination is not supported for multi-sub queries — the after token is always empty.
 func (c *Client) searchMulti(query string, subs string, sortOrder SortOrder, limit int, timeFilter TimeFilter, noCache bool) ([]*Post, string, error) {
 	parts := strings.Split(subs, ",")
-	if len(parts) > 10 {
-		return nil, "", fmt.Errorf("too many subreddits (max 10, got %d)", len(parts))
-	}
 	type result struct {
 		posts []*Post
 		err   error
