@@ -146,7 +146,7 @@ echo
 echo "  1) Claude Code"
 echo "  2) Cursor"
 echo "  3) Windsurf"
-echo "  4) VS Code (Copilot Chat)"
+echo "  4) GitHub Copilot (VS Code)"
 echo "  5) Cline"
 echo "  6) Zed"
 echo "  7) All of the above"
@@ -382,7 +382,7 @@ configure_vscode() {
         config_file="$HOME/.config/Code/User/mcp.json"
     fi
 
-    info "Configuring VS Code (Copilot Chat) MCP server"
+    info "Configuring GitHub Copilot (VS Code) MCP server"
 
     # VS Code uses "servers" not "mcpServers"
     write_mcp_config "$config_file" "servers" "$INSTALL_DIR/$BINARY"

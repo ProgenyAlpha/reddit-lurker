@@ -108,7 +108,7 @@ Write-Host ""
 Write-Host "  1) Claude Code"
 Write-Host "  2) Cursor"
 Write-Host "  3) Windsurf"
-Write-Host "  4) VS Code (Copilot Chat)"
+Write-Host "  4) GitHub Copilot (VS Code)"
 Write-Host "  5) Cline"
 Write-Host "  6) Zed"
 Write-Host "  7) All of the above"
@@ -184,7 +184,7 @@ function Install-Windsurf {
 
 function Install-VsCode {
     $config = Join-Path $env:APPDATA "Code\User\mcp.json"
-    Write-Info "Configuring VS Code (Copilot Chat) MCP server"
+    Write-Info "Configuring GitHub Copilot (VS Code) MCP server"
     Write-McpConfig -ConfigFile $config -TopKey "servers" -LurkPath $BinaryPath
     Write-Warn "Restart VS Code to load the new MCP server."
     Write-Warn "Requires VS Code 1.99+ and Copilot Chat in Agent mode."

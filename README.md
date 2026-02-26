@@ -152,7 +152,7 @@ If you installed the binary yourself, add lurk to your editor's MCP config:
 }
 ```
 
-**VS Code (Copilot Chat):**
+**GitHub Copilot (VS Code):**
 ```json
 {
   "servers": {
