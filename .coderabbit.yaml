@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  auto_review:
+    # Greptile is the automatic reviewer now. CodeRabbit stays on demand:
+    # `@coderabbitai review` on a PR still works.
+    enabled: false
